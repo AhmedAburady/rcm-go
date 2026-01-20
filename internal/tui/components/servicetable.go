@@ -6,8 +6,8 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ahmabora1/rcm/internal/parser"
-	"github.com/ahmabora1/rcm/internal/tui/styles"
+	"github.com/AhmedAburady/rcm-go/internal/parser"
+	"github.com/AhmedAburady/rcm-go/internal/tui/styles"
 )
 
 // ServiceStatus holds the status of a service

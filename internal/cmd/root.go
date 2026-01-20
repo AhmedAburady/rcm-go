@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/ahmabora1/rcm/internal/config"
-	"github.com/ahmabora1/rcm/internal/tui/views"
+	"github.com/AhmedAburady/rcm-go/internal/config"
+	"github.com/AhmedAburady/rcm-go/internal/tui/views"
 )
 
 var cfgFile string
@@ -83,7 +83,7 @@ func initConfig() {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			// Store the error for later - commands that need config will check this
 			home, _ := os.UserHomeDir()
-			configErr = fmt.Errorf("config file not found\n\nCreate one at: %s/.config/rcm/config.yaml\n\nSee: https://github.com/ahmabora1/rcm#configuration", home)
+			configErr = fmt.Errorf("config file not found\n\nCreate one at: %s/.config/rcm/config.yaml\n\nSee: https://github.com/AhmedAburady/rcm-go#configuration", home)
 		} else {
 			fmt.Fprintf(os.Stderr, "Error reading config: %v\n", err)
 			os.Exit(1)

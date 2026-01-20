@@ -11,11 +11,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 
-	"github.com/ahmabora1/rcm/internal/config"
-	"github.com/ahmabora1/rcm/internal/generator"
-	"github.com/ahmabora1/rcm/internal/parser"
-	"github.com/ahmabora1/rcm/internal/ssh"
-	"github.com/ahmabora1/rcm/internal/tui/styles"
+	"github.com/AhmedAburady/rcm-go/internal/config"
+	"github.com/AhmedAburady/rcm-go/internal/generator"
+	"github.com/AhmedAburady/rcm-go/internal/parser"
+	"github.com/AhmedAburady/rcm-go/internal/ssh"
+	"github.com/AhmedAburady/rcm-go/internal/tui/styles"
 )
 
 type syncStep int

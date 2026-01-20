@@ -6,8 +6,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ahmabora1/rcm/internal/config"
-	"github.com/ahmabora1/rcm/internal/tui/styles"
+	"github.com/AhmedAburady/rcm-go/internal/config"
+	"github.com/AhmedAburady/rcm-go/internal/tui/styles"
 )
 
 // AppView represents which view is active

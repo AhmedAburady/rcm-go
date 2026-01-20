@@ -11,10 +11,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 
-	"github.com/ahmabora1/rcm/internal/config"
-	"github.com/ahmabora1/rcm/internal/parser"
-	"github.com/ahmabora1/rcm/internal/ssh"
-	"github.com/ahmabora1/rcm/internal/tui/styles"
+	"github.com/AhmedAburady/rcm-go/internal/config"
+	"github.com/AhmedAburady/rcm-go/internal/parser"
+	"github.com/AhmedAburady/rcm-go/internal/ssh"
+	"github.com/AhmedAburady/rcm-go/internal/tui/styles"
 )
 
 type pullStep int
@@ -31,13 +31,13 @@ const (
 
 // PullModel is the Bubbletea model for the pull view
 type PullModel struct {
-	config   *config.Config
-	step     pullStep
-	spinner  spinner.Model
-	logs     []string
-	err      error
-	width    int
-	height   int
+	config  *config.Config
+	step    pullStep
+	spinner spinner.Model
+	logs    []string
+	err     error
+	width   int
+	height  int
 
 	// Downloaded content
 	remoteCaddyfile string
@@ -48,8 +48,8 @@ type PullModel struct {
 type pullStepCompleteMsg struct {
 	step            pullStep
 	log             string
-	remoteCaddyfile string            // Content from download step
-	services        []parser.Service  // Parsed services
+	remoteCaddyfile string           // Content from download step
+	services        []parser.Service // Parsed services
 }
 
 type pullErrMsg struct {

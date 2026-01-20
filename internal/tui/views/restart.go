@@ -8,9 +8,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ahmabora1/rcm/internal/config"
-	"github.com/ahmabora1/rcm/internal/ssh"
-	"github.com/ahmabora1/rcm/internal/tui/styles"
+	"github.com/AhmedAburady/rcm-go/internal/config"
+	"github.com/AhmedAburady/rcm-go/internal/ssh"
+	"github.com/AhmedAburady/rcm-go/internal/tui/styles"
 )
 
 type restartPhase int
@@ -57,12 +57,12 @@ type RestartModel struct {
 }
 
 type restartDoneMsg struct {
-	err                 error
-	friendly            string
-	serverRatholeDone   bool
-	serverCaddyDone     bool
-	clientRatholeDone   bool
-	failedTask          string // which task failed
+	err               error
+	friendly          string
+	serverRatholeDone bool
+	serverCaddyDone   bool
+	clientRatholeDone bool
+	failedTask        string // which task failed
 }
 
 type restartTaskUpdateMsg struct {

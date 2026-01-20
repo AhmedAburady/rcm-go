@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/ahmabora1/rcm/internal/config"
-	"github.com/ahmabora1/rcm/internal/parser"
+	"github.com/AhmedAburady/rcm-go/internal/config"
+	"github.com/AhmedAburady/rcm-go/internal/parser"
 )
 
 //go:embed templates/*.tmpl

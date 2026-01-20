@@ -1,4 +1,4 @@
-module github.com/ahmabora1/rcm
+module github.com/AhmedAburady/rcm-go
 
 go 1.25.6
 

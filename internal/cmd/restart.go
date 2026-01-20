@@ -6,9 +6,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/ahmabora1/rcm/internal/config"
-	"github.com/ahmabora1/rcm/internal/ssh"
-	"github.com/ahmabora1/rcm/internal/tui/views"
+	"github.com/AhmedAburady/rcm-go/internal/config"
+	"github.com/AhmedAburady/rcm-go/internal/ssh"
+	"github.com/AhmedAburady/rcm-go/internal/tui/views"
 )
 
 var restartCmd = &cobra.Command{
