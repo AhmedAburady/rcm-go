@@ -1,0 +1,14 @@
+# RCM Generated - Do not edit manually
+[server]
+bind_addr = "0.0.0.0:{{ .Rathole.BindPort }}"
+default_token = "{{ .Rathole.Token }}"
+
+[server.transport]
+type = "noise"
+
+[server.transport.noise]
+local_private_key = "{{ .Rathole.ServerPrivateKey }}"
+{{ range .Services }}
+[server.services.{{ .Name }}]
+bind_addr = "0.0.0.0:{{ .VPSPort }}"
+{{ end }}

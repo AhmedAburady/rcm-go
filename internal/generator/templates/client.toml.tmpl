@@ -1,0 +1,14 @@
+# RCM Generated - Do not edit manually
+[client]
+remote_addr = "{{ .Server.Host }}:{{ .Rathole.BindPort }}"
+default_token = "{{ .Rathole.Token }}"
+
+[client.transport]
+type = "noise"
+
+[client.transport.noise]
+remote_public_key = "{{ .Rathole.ServerPublicKey }}"
+{{ range .Services }}
+[client.services.{{ .Name }}]
+local_addr = "{{ .LocalAddr }}"
+{{ end }}
