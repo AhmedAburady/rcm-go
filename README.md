@@ -10,8 +10,8 @@ A single-binary CLI tool with interactive TUI for managing [Rathole](https://git
 flowchart TB
     subgraph local["Your Machine"]
         config["~/.config/rcm/"]
-        configyaml["config.yaml<br/>(SSH creds, rathole keys)"]
-        caddyfile["Caddyfile<br/>(source of truth)"]
+        configyaml["config.yaml"]
+        caddyfile["Caddyfile"]
         config --> configyaml
         config --> caddyfile
     end
@@ -20,22 +20,22 @@ flowchart TB
     config --> rcm
 
     subgraph vps["VPS"]
-        servertoml["server.toml<br/>(generated)"]
-        vpscaddy["Caddyfile<br/>(copied)"]
+        servertoml["server.toml"]
+        vpscaddy["Caddyfile"]
         ratholeserver["rathole-server"]
         caddy["caddy"]
     end
 
     subgraph home["Home Machine"]
-        clienttoml["client.toml<br/>(generated)"]
+        clienttoml["client.toml"]
         ratholeclient["rathole-client"]
     end
 
     rcm -->|SSH| vps
     rcm -->|SSH| home
 
-    internet["Internet<br/>HTTPS"] --> caddy
-    ratholeclient <-->|"Encrypted Tunnel<br/>(Noise Protocol)"| ratholeserver
+    internet["Internet"] --> caddy
+    ratholeclient <-->|Tunnel| ratholeserver
 ```
 
 ## The Problem
