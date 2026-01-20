@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -22,8 +24,10 @@ func Load() (*Config, error) {
 	// Expand paths
 	cfg.Paths.Caddyfile = ExpandPath(cfg.Paths.Caddyfile)
 	cfg.Paths.SSHDir = ExpandPath(cfg.Paths.SSHDir)
-	cfg.Server.SSHKey = ExpandPath(cfg.Server.SSHKey)
-	cfg.Client.SSHKey = ExpandPath(cfg.Client.SSHKey)
+
+	// Handle SSH keys - if just a filename, combine with ssh_dir
+	cfg.Server.SSHKey = resolveSSHKey(cfg.Server.SSHKey, cfg.Paths.SSHDir)
+	cfg.Client.SSHKey = resolveSSHKey(cfg.Client.SSHKey, cfg.Paths.SSHDir)
 
 	// Validate required fields
 	if cfg.Server.Host == "" {
@@ -34,6 +38,23 @@ func Load() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// resolveSSHKey resolves the SSH key path
+// If it's just a filename, combine with sshDir
+// If it starts with ~ or /, treat as full path
+func resolveSSHKey(keyPath, sshDir string) string {
+	if keyPath == "" {
+		return ""
+	}
+
+	// If it's already a full path or starts with ~, expand it
+	if strings.HasPrefix(keyPath, "~") || strings.HasPrefix(keyPath, "/") {
+		return ExpandPath(keyPath)
+	}
+
+	// Otherwise, it's just a filename - combine with ssh_dir
+	return filepath.Join(sshDir, keyPath)
 }
 
 // ConfigPath returns the path of the loaded config file

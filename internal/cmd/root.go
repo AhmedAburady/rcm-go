@@ -4,8 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/ahmabora1/rcm/internal/config"
+	"github.com/ahmabora1/rcm/internal/tui/views"
 )
 
 var cfgFile string
@@ -17,7 +21,27 @@ var rootCmd = &cobra.Command{
 with Caddy reverse proxy integration.
 
 It uses the Caddyfile as the source of truth, parsing service
-definitions and generating rathole configurations automatically.`,
+definitions and generating rathole configurations automatically.
+
+Run without arguments to launch the interactive TUI.`,
+	RunE: runApp,
+}
+
+// runApp launches the main TUI application
+func runApp(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	model := views.NewAppModel(cfg)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+
+	return nil
 }
 
 // Execute runs the root command

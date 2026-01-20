@@ -75,7 +75,7 @@ func NewSyncModel(cfg *config.Config, dryRun bool) SyncModel {
 
 	p := progress.New(
 		progress.WithDefaultGradient(),
-		progress.WithWidth(50),
+		progress.WithWidth(40),
 	)
 
 	return SyncModel{
@@ -85,6 +85,8 @@ func NewSyncModel(cfg *config.Config, dryRun bool) SyncModel {
 		progress: p,
 		logs:     []string{},
 		dryRun:   dryRun,
+		width:    80,
+		height:   24,
 	}
 }
 
@@ -110,9 +112,9 @@ func (m SyncModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.progress.Width = m.width - 10
-		if m.progress.Width > 60 {
-			m.progress.Width = 60
+		m.progress.Width = 40
+		if m.width > 80 {
+			m.progress.Width = 50
 		}
 
 	case stepCompleteMsg:
@@ -145,43 +147,44 @@ func (m SyncModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the UI
 func (m SyncModel) View() string {
-	var s strings.Builder
+	var lines []string
 
-	s.WriteString("\n")
-	title := "  RCM Sync"
+	// Title
+	title := "Sync Configuration"
 	if m.dryRun {
-		title += " (dry-run)"
+		title += " (Dry Run)"
 	}
-	s.WriteString(styles.Title.Render(title))
-	s.WriteString("\n\n")
+	lines = append(lines, styles.WindowTitle.Render(title))
+	lines = append(lines, "")
 
 	// Progress bar
 	percent := float64(m.step) / float64(stepComplete)
-	s.WriteString("  ")
-	s.WriteString(m.progress.ViewAs(percent))
-	s.WriteString("\n\n")
+	lines = append(lines, m.progress.ViewAs(percent))
+	lines = append(lines, "")
 
 	// Current step
 	if m.step < stepComplete {
-		s.WriteString(fmt.Sprintf("  %s %s\n", m.spinner.View(), stepNames[m.step]))
+		lines = append(lines, fmt.Sprintf("%s %s", m.spinner.View(), stepNames[m.step]))
 	} else if m.step == stepComplete {
-		s.WriteString(styles.Success.Render("  ✓ " + stepNames[m.step]))
-		s.WriteString("\n")
+		lines = append(lines, styles.Success.Render("✓ "+stepNames[m.step]))
 	} else {
-		s.WriteString(styles.Error.Render(fmt.Sprintf("  ✗ Error: %v", m.err)))
-		s.WriteString("\n")
+		lines = append(lines, styles.Error.Render(fmt.Sprintf("✗ Error: %v", m.err)))
 	}
 
 	// Logs
-	s.WriteString("\n")
-	for _, log := range m.logs {
-		s.WriteString(fmt.Sprintf("  %s %s\n", styles.CheckMark(), log))
+	if len(m.logs) > 0 {
+		lines = append(lines, "")
+		for _, log := range m.logs {
+			lines = append(lines, fmt.Sprintf("%s %s", styles.CheckMark(), log))
+		}
 	}
 
-	s.WriteString("\n")
-	s.WriteString(styles.HelpBar.Render("  Press q to quit"))
+	// Help text
+	lines = append(lines, "")
+	lines = append(lines, styles.Dimmed.Render("ESC to go back"))
 
-	return s.String()
+	content := strings.Join(lines, "\n")
+	return styles.CenterWindow(content, m.width, m.height, 52)
 }
 
 // runStep executes the current sync step

@@ -2,15 +2,14 @@ package views
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/ahmabora1/rcm/internal/config"
 	"github.com/ahmabora1/rcm/internal/parser"
-	"github.com/ahmabora1/rcm/internal/tui/components"
 	"github.com/ahmabora1/rcm/internal/tui/styles"
 )
 
@@ -25,15 +24,16 @@ const (
 
 // ListModel is the Bubbletea model for the list view
 type ListModel struct {
-	state    ListState
-	config   *config.Config
-	services []parser.Service
-	table    table.Model
-	spinner  spinner.Model
-	err      error
-	width    int
-	height   int
-	showHelp bool
+	state       ListState
+	config      *config.Config
+	services    []parser.Service
+	spinner     spinner.Model
+	err         error
+	width       int
+	height      int
+	showHelp    bool
+	selectedIdx int
+	scrollTop   int
 }
 
 // Messages
@@ -55,6 +55,8 @@ func NewListModel(cfg *config.Config) ListModel {
 		state:   ListStateLoading,
 		config:  cfg,
 		spinner: s,
+		width:   80,
+		height:  24,
 	}
 }
 
@@ -81,23 +83,23 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			m.state = ListStateLoading
 			return m, tea.Batch(m.spinner.Tick, m.loadServicesCmd())
+		case "up", "k":
+			if m.selectedIdx > 0 {
+				m.selectedIdx--
+			}
+		case "down", "j":
+			if m.selectedIdx < len(m.services)-1 {
+				m.selectedIdx++
+			}
 		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		if m.state == ListStateReady {
-			m.table.SetHeight(m.height - 10)
-		}
 
 	case servicesLoadedMsg:
 		m.state = ListStateReady
 		m.services = msg.services
-		height := m.height - 10
-		if height < 5 {
-			height = 10
-		}
-		m.table = components.NewSimpleServiceTable(msg.services, height)
 		return m, nil
 
 	case listErrMsg:
@@ -110,39 +112,60 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 
-	if m.state == ListStateReady {
-		m.table, cmd = m.table.Update(msg)
-		cmds = append(cmds, cmd)
-	}
-
 	return m, tea.Batch(cmds...)
 }
 
 // View renders the UI
 func (m ListModel) View() string {
+	var lines []string
+
+	// Title
+	lines = append(lines, styles.WindowTitle.Render("Services"))
+	lines = append(lines, "")
+
 	switch m.state {
 	case ListStateLoading:
-		return fmt.Sprintf("\n  %s Loading services...\n", m.spinner.View())
+		lines = append(lines, fmt.Sprintf("%s Loading services...", m.spinner.View()))
 
 	case ListStateError:
-		return styles.Error.Render(fmt.Sprintf("\n  Error: %v\n\n  Press q to quit.\n", m.err))
+		lines = append(lines, styles.Error.Render(fmt.Sprintf("Error: %v", m.err)))
 
 	case ListStateReady:
-		var s string
-		s += "\n"
-		s += styles.Title.Render("  RCM Services") + "\n\n"
-		s += m.table.View() + "\n"
+		// Simple list of services
+		for i, svc := range m.services {
+			var line string
+			name := fmt.Sprintf("%-12s", svc.Name)
+			addr := fmt.Sprintf("%-20s", svc.LocalAddr)
+			port := fmt.Sprintf(":%d", svc.VPSPort)
 
-		if m.showHelp {
-			s += "\n" + styles.HelpBar.Render("  ↑/k: up • ↓/j: down • q: quit • r: refresh • ?: toggle help")
-		} else {
-			s += "\n" + styles.HelpBar.Render("  Press ? for help")
+			if i == m.selectedIdx {
+				// Selected row
+				selectedStyle := lipgloss.NewStyle().
+					Background(styles.Primary).
+					Foreground(styles.White).
+					Bold(true)
+				line = selectedStyle.Render(fmt.Sprintf(" %s %s %s ", name, addr, port))
+			} else {
+				line = fmt.Sprintf(" %s %s %s ", name, addr, port)
+			}
+			lines = append(lines, line)
 		}
 
-		return s
+		if len(m.services) == 0 {
+			lines = append(lines, styles.Dimmed.Render("No services found"))
+		}
 	}
 
-	return ""
+	// Help text
+	lines = append(lines, "")
+	if m.showHelp {
+		lines = append(lines, styles.Dimmed.Render("↑/k up  ↓/j down  r refresh  ESC back"))
+	} else {
+		lines = append(lines, styles.Dimmed.Render("? help  ESC back"))
+	}
+
+	content := strings.Join(lines, "\n")
+	return styles.CenterWindow(content, m.width, m.height, 52)
 }
 
 // loadServicesCmd creates a command to load services

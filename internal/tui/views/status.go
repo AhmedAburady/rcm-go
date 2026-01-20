@@ -68,6 +68,8 @@ func NewStatusModel(cfg *config.Config) StatusModel {
 		state:   StatusStateLoading,
 		config:  cfg,
 		spinner: s,
+		width:   80,
+		height:  24,
 	}
 }
 
@@ -121,36 +123,36 @@ func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the UI
 func (m StatusModel) View() string {
-	var s strings.Builder
+	var lines []string
 
-	s.WriteString("\n")
-	s.WriteString(styles.Title.Render("  RCM Status"))
-	s.WriteString("\n\n")
+	// Title
+	lines = append(lines, styles.WindowTitle.Render("Service Status"))
+	lines = append(lines, "")
 
 	switch m.state {
 	case StatusStateLoading:
-		s.WriteString(fmt.Sprintf("  %s Checking services...\n", m.spinner.View()))
+		lines = append(lines, fmt.Sprintf("%s Checking services...", m.spinner.View()))
 
 	case StatusStateError:
-		s.WriteString(styles.Error.Render(fmt.Sprintf("  Error: %v\n", m.err)))
+		lines = append(lines, styles.Error.Render(fmt.Sprintf("Error: %v", m.err)))
 
 	case StatusStateReady:
 		// Server status
-		s.WriteString(m.renderMachineStatus("Server", m.server))
-		s.WriteString("\n")
-
+		lines = append(lines, m.renderMachineStatus("Server", m.server))
 		// Client status
-		s.WriteString(m.renderMachineStatus("Client", m.client))
+		lines = append(lines, m.renderMachineStatus("Client", m.client))
 	}
 
-	s.WriteString("\n")
+	// Help text
+	lines = append(lines, "")
 	if m.showHelp {
-		s.WriteString(styles.HelpBar.Render("  q: quit • r: refresh • ?: toggle help"))
+		lines = append(lines, styles.Dimmed.Render("ESC: back  r: refresh  ?: help"))
 	} else {
-		s.WriteString(styles.HelpBar.Render("  Press ? for help"))
+		lines = append(lines, styles.Dimmed.Render("? for help  ESC to go back"))
 	}
 
-	return s.String()
+	content := strings.Join(lines, "\n")
+	return styles.CenterWindow(content, m.width, m.height, 52)
 }
 
 func (m StatusModel) renderMachineStatus(name string, status MachineStatus) string {
@@ -163,10 +165,10 @@ func (m StatusModel) renderMachineStatus(name string, status MachineStatus) stri
 		onlineIcon = styles.CrossMark()
 	}
 
-	s.WriteString(fmt.Sprintf("  %s %s (%s)\n", onlineIcon, hostStyle.Render(name), status.Host))
+	s.WriteString(fmt.Sprintf("%s %s (%s)\n", onlineIcon, hostStyle.Render(name), status.Host))
 
 	if !status.Online {
-		s.WriteString(styles.Dimmed.Render("    Unable to connect\n"))
+		s.WriteString(styles.Dimmed.Render("  Unable to connect\n"))
 		return s.String()
 	}
 
@@ -178,7 +180,7 @@ func (m StatusModel) renderMachineStatus(name string, status MachineStatus) stri
 			icon = styles.CrossMark()
 			statusText = styles.Error.Render(svc.Status)
 		}
-		s.WriteString(fmt.Sprintf("    %s %-20s %s\n", icon, svc.Name, statusText))
+		s.WriteString(fmt.Sprintf("  %s %-18s %s\n", icon, svc.Name, statusText))
 	}
 
 	return s.String()

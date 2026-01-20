@@ -94,6 +94,15 @@ func (c *Client) Close() error {
 	return nil
 }
 
+// DownloadFile reads a file from the remote server and returns its content
+func (c *Client) DownloadFile(remotePath string) (string, error) {
+	output, err := c.Run(fmt.Sprintf("cat %q", remotePath))
+	if err != nil {
+		return "", fmt.Errorf("download %s: %w", remotePath, err)
+	}
+	return output, nil
+}
+
 func expandPath(path string) string {
 	if len(path) > 0 && path[0] == '~' {
 		home, _ := os.UserHomeDir()

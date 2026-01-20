@@ -4,12 +4,14 @@ import "github.com/charmbracelet/lipgloss"
 
 var (
 	// Colors
-	Primary   = lipgloss.Color("#7D56F4")
-	Secondary = lipgloss.Color("#43BF6D")
-	Danger    = lipgloss.Color("#FF5F56")
-	Warning   = lipgloss.Color("#FFBD2E")
-	Muted     = lipgloss.Color("#626262")
-	White     = lipgloss.Color("#FAFAFA")
+	Primary    = lipgloss.Color("#7D56F4")
+	Secondary  = lipgloss.Color("#43BF6D")
+	Danger     = lipgloss.Color("#FF5F56")
+	Warning    = lipgloss.Color("#FFBD2E")
+	Muted      = lipgloss.Color("#626262")
+	White      = lipgloss.Color("#FAFAFA")
+	Background = lipgloss.Color("#1a1a2e")
+	Border     = lipgloss.Color("#4a4a6a")
 
 	// Adaptive colors (dark/light mode)
 	Subtle = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
@@ -40,6 +42,19 @@ var (
 		BorderForeground(Primary).
 		Padding(1, 2)
 
+	// Window box - main container with rounded borders
+	WindowBox = lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(Border).
+			Padding(1, 3)
+
+	// Header style inside window
+	WindowTitle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(Primary).
+			Align(lipgloss.Center).
+			MarginBottom(1)
+
 	// Selected item
 	Selected = lipgloss.NewStyle().
 			Foreground(White).
@@ -51,6 +66,11 @@ var (
 	HelpBar = lipgloss.NewStyle().
 		Foreground(Muted).
 		MarginTop(1)
+
+	// Help bar centered
+	HelpBarCentered = lipgloss.NewStyle().
+			Foreground(Muted).
+			Align(lipgloss.Center)
 
 	// Error message
 	Error = lipgloss.NewStyle().
@@ -69,6 +89,25 @@ var (
 	// Dimmed text
 	Dimmed = lipgloss.NewStyle().
 		Foreground(Muted)
+
+	// SubtleText is a styled text for secondary info
+	SubtleText = lipgloss.NewStyle().
+			Foreground(Muted).
+			Italic(true)
+
+	// MenuItem styles
+	MenuItem = lipgloss.NewStyle().
+			Padding(0, 2)
+
+	MenuItemSelected = lipgloss.NewStyle().
+				Foreground(White).
+				Background(Primary).
+				Bold(true).
+				Padding(0, 2)
+
+	MenuItemDesc = lipgloss.NewStyle().
+			Foreground(Muted).
+			PaddingLeft(4)
 )
 
 // StatusIcon returns the appropriate status icon
@@ -92,4 +131,21 @@ func CheckMark() string {
 // CrossMark returns a styled cross
 func CrossMark() string {
 	return StatusError.Render("✗")
+}
+
+// CenterWindow creates a centered window box with given content and dimensions
+func CenterWindow(content string, width, height, boxWidth int) string {
+	// Create the box with centered content
+	box := WindowBox.
+		Width(boxWidth).
+		Align(lipgloss.Center).
+		Render(content)
+
+	// Use lipgloss.Place for proper centering
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
+}
+
+// PlaceCenter centers content both horizontally and vertically
+func PlaceCenter(width, height int, content string) string {
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
 }
