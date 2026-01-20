@@ -5,8 +5,8 @@ bin/
 *.dll
 *.so
 *.dylib
-rcm
-rcm-*
+/rcm
+/rcm-*
 
 # Test binary, built with `go test -c`
 *.test
