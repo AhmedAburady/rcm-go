@@ -30,6 +30,10 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -o rcm-darwin-amd64 ./cmd/rcm
           GOOS=darwin GOARCH=arm64 go build -o rcm-darwin-arm64 ./cmd/rcm
 
+          # Windows
+          GOOS=windows GOARCH=amd64 go build -o rcm-windows-amd64.exe ./cmd/rcm
+          GOOS=windows GOARCH=arm64 go build -o rcm-windows-arm64.exe ./cmd/rcm
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -38,4 +42,6 @@ jobs:
             rcm-linux-arm64
             rcm-darwin-amd64
             rcm-darwin-arm64
+            rcm-windows-amd64.exe
+            rcm-windows-arm64.exe
           generate_release_notes: true
