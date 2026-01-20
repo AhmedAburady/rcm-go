@@ -27,6 +27,10 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
+	if configErr != nil {
+		return configErr
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -36,8 +40,8 @@ func runList(cmd *cobra.Command, args []string) error {
 		return runListPlain(cfg)
 	}
 
-	// Launch TUI
-	model := views.NewListModel(cfg)
+	// Launch TUI with main app, starting at list view
+	model := views.NewAppModelWithView(cfg, views.ViewList)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {

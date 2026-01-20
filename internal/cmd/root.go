@@ -29,6 +29,11 @@ Run without arguments to launch the interactive TUI.`,
 
 // runApp launches the main TUI application
 func runApp(cmd *cobra.Command, args []string) error {
+	// Check for config file error first
+	if configErr != nil {
+		return configErr
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -56,6 +61,8 @@ func init() {
 		"config file (default: ~/.config/rcm/config.yaml)")
 }
 
+var configErr error
+
 func initConfig() {
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
@@ -73,8 +80,18 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Store the error for later - commands that need config will check this
+			home, _ := os.UserHomeDir()
+			configErr = fmt.Errorf("config file not found\n\nCreate one at: %s/.config/rcm/config.yaml\n\nSee: https://github.com/ahmabora1/rcm#configuration", home)
+		} else {
 			fmt.Fprintf(os.Stderr, "Error reading config: %v\n", err)
+			os.Exit(1)
 		}
 	}
+}
+
+// GetConfigError returns any config loading error
+func GetConfigError() error {
+	return configErr
 }

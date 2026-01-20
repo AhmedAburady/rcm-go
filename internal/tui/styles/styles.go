@@ -6,7 +6,7 @@ var (
 	// Colors
 	Primary    = lipgloss.Color("#7D56F4")
 	Secondary  = lipgloss.Color("#43BF6D")
-	Danger     = lipgloss.Color("#FF5F56")
+	Danger     = lipgloss.Color("#FF79C6")
 	Warning    = lipgloss.Color("#FFBD2E")
 	Muted      = lipgloss.Color("#626262")
 	White      = lipgloss.Color("#FAFAFA")
@@ -46,7 +46,7 @@ var (
 	WindowBox = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(Border).
-			Padding(1, 3)
+			Padding(2, 4)
 
 	// Header style inside window
 	WindowTitle = lipgloss.NewStyle().

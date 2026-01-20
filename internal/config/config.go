@@ -12,6 +12,11 @@ import (
 func Load() (*Config, error) {
 	var cfg Config
 
+	// Check if config file was loaded
+	if viper.ConfigFileUsed() == "" {
+		return nil, fmt.Errorf("no config file loaded")
+	}
+
 	// Set defaults
 	viper.SetDefault("paths.ssh_dir", "~/.ssh")
 	viper.SetDefault("server.user", "root")

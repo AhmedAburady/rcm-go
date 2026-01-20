@@ -34,12 +34,21 @@ func init() {
 }
 
 func runSync(cmd *cobra.Command, args []string) error {
+	if configErr != nil {
+		return configErr
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	model := views.NewSyncModel(cfg, syncDryRun)
+	// Launch TUI with main app, starting at sync view
+	initialView := views.ViewSync
+	if syncDryRun {
+		initialView = views.ViewSyncDryRun
+	}
+	model := views.NewAppModelWithView(cfg, initialView)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {

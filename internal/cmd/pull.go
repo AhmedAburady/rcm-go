@@ -7,11 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/ahmabora1/rcm/internal/config"
 	"github.com/ahmabora1/rcm/internal/parser"
 	"github.com/ahmabora1/rcm/internal/ssh"
+	"github.com/ahmabora1/rcm/internal/tui/views"
 )
 
 var pullCmd = &cobra.Command{
@@ -25,19 +27,43 @@ made directly on the server.`,
 	RunE: runPull,
 }
 
-var pullForce bool
+var (
+	pullForce bool
+	pullPlain bool
+)
 
 func init() {
 	rootCmd.AddCommand(pullCmd)
 	pullCmd.Flags().BoolVarP(&pullForce, "force", "f", false, "Overwrite local file without confirmation")
+	pullCmd.Flags().BoolVarP(&pullPlain, "plain", "p", false, "Plain text output (no TUI)")
 }
 
 func runPull(cmd *cobra.Command, args []string) error {
+	if configErr != nil {
+		return configErr
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	if pullPlain {
+		return runPullPlain(cfg)
+	}
+
+	// Launch TUI with main app, starting at pull view
+	model := views.NewAppModelWithView(cfg, views.ViewPull)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+
+	return nil
+}
+
+func runPullPlain(cfg *config.Config) error {
 	// Check if local file exists
 	localPath := cfg.Paths.Caddyfile
 	if _, err := os.Stat(localPath); err == nil && !pullForce {
@@ -56,11 +82,11 @@ func runPull(cmd *cobra.Command, args []string) error {
 
 	// Connect to server
 	fmt.Printf("Connecting to %s...\n", cfg.Server.Host)
-	client, err := ssh.NewClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHKey)
+	client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHKey)
 	if err != nil {
 		return fmt.Errorf("connect to server: %w", err)
 	}
-	defer client.Close()
+	// Don't close - connection is pooled and reused
 
 	// Download Caddyfile
 	fmt.Printf("Downloading Caddyfile from %s...\n", cfg.Server.Caddyfile)
