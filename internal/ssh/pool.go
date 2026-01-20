@@ -18,15 +18,9 @@ func GetClient(host, user, keyPath string) (*Client, error) {
 
 	key := user + "@" + host
 
-	// Return cached connection if it exists and is alive
+	// Return cached connection if it exists
 	if client, ok := pool[key]; ok {
-		// Test if connection is still alive
-		if _, err := client.Run("true"); err == nil {
-			return client, nil
-		}
-		// Connection dead, clean it up
-		client.Close()
-		delete(pool, key)
+		return client, nil
 	}
 
 	// Create new connection
@@ -37,6 +31,18 @@ func GetClient(host, user, keyPath string) (*Client, error) {
 
 	pool[key] = client
 	return client, nil
+}
+
+// RemoveClient removes a client from the pool (call when connection fails)
+func RemoveClient(host, user string) {
+	poolMu.Lock()
+	defer poolMu.Unlock()
+
+	key := user + "@" + host
+	if client, ok := pool[key]; ok {
+		client.Close()
+		delete(pool, key)
+	}
 }
 
 // CloseAll closes all cached connections. Call this when the app exits.

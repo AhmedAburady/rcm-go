@@ -86,6 +86,11 @@ var (
 	Info = lipgloss.NewStyle().
 		Foreground(Primary)
 
+	// Warning message
+	WarningText = lipgloss.NewStyle().
+			Foreground(Warning).
+			Bold(true)
+
 	// Dimmed text
 	Dimmed = lipgloss.NewStyle().
 		Foreground(Muted)
@@ -108,6 +113,11 @@ var (
 	MenuItemDesc = lipgloss.NewStyle().
 			Foreground(Muted).
 			PaddingLeft(4)
+
+	// KeyStyle for highlighting keyboard shortcuts
+	KeyStyle = lipgloss.NewStyle().
+			Foreground(Warning).
+			Bold(true)
 )
 
 // StatusIcon returns the appropriate status icon

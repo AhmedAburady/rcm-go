@@ -20,7 +20,8 @@ import (
 type pullStep int
 
 const (
-	pullStepConnecting pullStep = iota
+	pullStepConfirm pullStep = iota
+	pullStepConnecting
 	pullStepDownloading
 	pullStepParsing
 	pullStepSaving
@@ -67,9 +68,15 @@ func NewPullModel(cfg *config.Config) PullModel {
 		localExists = true
 	}
 
+	// Start at confirm step if local file exists, otherwise skip to connecting
+	startStep := pullStepConnecting
+	if localExists {
+		startStep = pullStepConfirm
+	}
+
 	return PullModel{
 		config:      cfg,
-		step:        pullStepConnecting,
+		step:        startStep,
 		spinner:     s,
 		logs:        []string{},
 		localExists: localExists,
@@ -80,6 +87,11 @@ func NewPullModel(cfg *config.Config) PullModel {
 
 // Init initializes the model
 func (m PullModel) Init() tea.Cmd {
+	// If on confirm step, just start spinner (wait for user input)
+	if m.step == pullStepConfirm {
+		return m.spinner.Tick
+	}
+	// Otherwise start the pull operation
 	return tea.Batch(
 		m.spinner.Tick,
 		m.runStep(pullStepConnecting),
@@ -97,6 +109,17 @@ func (m PullModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "q", "esc":
 			return m, func() tea.Msg { return GoBackMsg{} }
+		case "y", "Y":
+			// Confirm overwrite and start pull
+			if m.step == pullStepConfirm {
+				m.step = pullStepConnecting
+				return m, m.runStep(pullStepConnecting)
+			}
+		case "n", "N":
+			// Cancel on confirm step
+			if m.step == pullStepConfirm {
+				return m, func() tea.Msg { return GoBackMsg{} }
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -140,6 +163,8 @@ func (m PullModel) View() string {
 
 	// Title
 	switch m.step {
+	case pullStepConfirm:
+		lines = append(lines, styles.WindowTitle.Render("Confirm Overwrite"))
 	case pullStepComplete:
 		lines = append(lines, styles.WindowTitle.Render("Pull Complete"))
 	case pullStepFailed:
@@ -149,8 +174,22 @@ func (m PullModel) View() string {
 	}
 	lines = append(lines, "")
 
-	// Progress table
-	lines = append(lines, m.renderProgressTable())
+	// Confirmation prompt
+	if m.step == pullStepConfirm {
+		lines = append(lines, styles.WarningText.Render("  Local Caddyfile already exists:"))
+		lines = append(lines, "")
+		lines = append(lines, styles.Dimmed.Render("  "+m.config.Paths.Caddyfile))
+		lines = append(lines, "")
+		lines = append(lines, "  Pulling from server will overwrite this file.")
+		lines = append(lines, "")
+		lines = append(lines, "")
+		lines = append(lines, fmt.Sprintf("  Press %s to overwrite, %s to cancel",
+			styles.KeyStyle.Render("y"),
+			styles.KeyStyle.Render("n")))
+	} else {
+		// Progress table (only show when not on confirm step)
+		lines = append(lines, m.renderProgressTable())
+	}
 
 	// Services table after completion
 	if m.step == pullStepComplete && len(m.services) > 0 {

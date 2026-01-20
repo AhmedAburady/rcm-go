@@ -405,9 +405,6 @@ func (m RestartModel) renderTask(name string, status taskStatus) string {
 	return fmt.Sprintf("  %s %s", icon, text)
 }
 
-// restartNextTaskMsg signals to start the next task
-type restartNextTaskMsg struct{}
-
 func (m RestartModel) startRestart() tea.Cmd {
 	// Set initial running states and start the chain
 	var cmds []tea.Cmd

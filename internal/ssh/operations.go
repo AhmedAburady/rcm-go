@@ -1,81 +1,56 @@
 package ssh
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
-
-	"github.com/pkg/sftp"
 )
 
-// UploadContent uploads string content to a remote file
+// UploadContent uploads string content to a remote file using shell commands (no SFTP)
 func (c *Client) UploadContent(content, remotePath string) error {
-	sftpClient, err := sftp.NewClient(c.client)
-	if err != nil {
-		return fmt.Errorf("create sftp client: %w", err)
-	}
-	defer sftpClient.Close()
-
-	// Expand ~ in remote path based on user
 	remotePath = c.expandRemotePath(remotePath)
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(remotePath)
-	if err := sftpClient.MkdirAll(dir); err != nil {
-		// Ignore error, directory might exist
+	mkdirCmd := fmt.Sprintf("mkdir -p %q", dir)
+	if c.user != "root" {
+		mkdirCmd = "sudo " + mkdirCmd
+	}
+	_, _ = c.Run(mkdirCmd) // Ignore error, directory might exist
+
+	// Use base64 encoding to safely transfer content with special characters
+	encoded := base64.StdEncoding.EncodeToString([]byte(content))
+	writeCmd := fmt.Sprintf("echo %q | base64 -d > %q", encoded, remotePath)
+	if c.user != "root" {
+		writeCmd = fmt.Sprintf("echo %q | base64 -d | sudo tee %q > /dev/null", encoded, remotePath)
 	}
 
-	file, err := sftpClient.Create(remotePath)
+	_, err := c.Run(writeCmd)
 	if err != nil {
-		return fmt.Errorf("create remote file %s: %w", remotePath, err)
-	}
-	defer file.Close()
-
-	if _, err := file.Write([]byte(content)); err != nil {
 		return fmt.Errorf("write to %s: %w", remotePath, err)
 	}
 
 	return nil
 }
 
-// DownloadContent downloads a remote file and returns its content
+// DownloadContent downloads a remote file using cat (no SFTP)
 func (c *Client) DownloadContent(remotePath string) (string, error) {
-	sftpClient, err := sftp.NewClient(c.client)
-	if err != nil {
-		return "", fmt.Errorf("create sftp client: %w", err)
-	}
-	defer sftpClient.Close()
-
-	// Expand ~ in remote path
 	remotePath = c.expandRemotePath(remotePath)
 
-	file, err := sftpClient.Open(remotePath)
-	if err != nil {
-		return "", fmt.Errorf("open remote file %s: %w", remotePath, err)
-	}
-	defer file.Close()
-
-	content, err := io.ReadAll(file)
+	output, err := c.Run(fmt.Sprintf("cat %q", remotePath))
 	if err != nil {
 		return "", fmt.Errorf("read %s: %w", remotePath, err)
 	}
-
-	return string(content), nil
+	return output, nil
 }
 
-// FileExists checks if a remote file exists
+// FileExists checks if a remote file exists using test command (no SFTP)
 func (c *Client) FileExists(remotePath string) (bool, error) {
-	sftpClient, err := sftp.NewClient(c.client)
-	if err != nil {
-		return false, fmt.Errorf("create sftp client: %w", err)
-	}
-	defer sftpClient.Close()
-
 	remotePath = c.expandRemotePath(remotePath)
 
-	_, err = sftpClient.Stat(remotePath)
+	_, err := c.Run(fmt.Sprintf("test -f %q && echo exists", remotePath))
 	if err != nil {
 		return false, nil
 	}
