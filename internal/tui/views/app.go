@@ -221,8 +221,8 @@ func (m AppModel) renderMenu() string {
 	var lines []string
 	menuWidth := 90 // Inner content width
 
-	// Title
-	lines = append(lines, styles.WindowTitle.Render("RCM"))
+	// Gradient banner
+	lines = append(lines, styles.RenderGradientBanner())
 	lines = append(lines, styles.SubtleText.Render("Rathole Caddy Manager"))
 	lines = append(lines, "")
 
