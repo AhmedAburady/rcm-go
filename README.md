@@ -102,6 +102,14 @@ chmod +x rcm
 sudo mv rcm /usr/local/bin/
 ```
 
+### Install with Go
+
+If you have Go installed:
+
+```bash
+go install github.com/AhmedAburady/rcm-go/cmd/rcm@latest
+```
+
 ### Build from Source
 
 Requires Go 1.21+:
