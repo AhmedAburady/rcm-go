@@ -2,7 +2,7 @@
 
 A single-binary CLI tool with interactive TUI for managing [Rathole](https://github.com/rapiz1/rathole) tunnels with [Caddy](https://caddyserver.com/) reverse proxy. Uses your **Caddyfile as the single source of truth** - just edit one file and RCM handles the rest.
 
-![RCM TUI](screenshots/tui.png)
+![RCM TUI](screenshots/tui.png?v=1)
 
 > **Prerequisites:** This tool requires a working Rathole + Caddy setup. See **[rathole-tunnel](https://github.com/AhmedAburady/rathole-tunnel)** for the complete setup guide.
 
