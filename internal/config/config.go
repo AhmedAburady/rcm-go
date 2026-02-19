@@ -26,6 +26,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	// Resolve op:// and ${ENV} references
+	if err := resolveRefs(&cfg); err != nil {
+		return nil, fmt.Errorf("resolve config: %w", err)
+	}
+
 	// Expand paths
 	cfg.Paths.Caddyfile = ExpandPath(cfg.Paths.Caddyfile)
 	cfg.Paths.SSHDir = ExpandPath(cfg.Paths.SSHDir)

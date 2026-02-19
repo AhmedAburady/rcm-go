@@ -1,5 +1,9 @@
 # RCM Configuration Example
 # Copy this to ~/.config/rcm/config.yaml and update values
+#
+# Value references (resolved at load time):
+#   op://vault/item/field  — 1Password secret (requires `op` CLI)
+#   ${ENV_VAR}             — environment variable
 
 paths:
   # Local Caddyfile path
@@ -34,8 +38,8 @@ client:
 rathole:
   # Rathole bind port (default: 2333)
   bind_port: 2333
-  # Shared authentication token
-  token: your-secret-token-here
+  # Shared authentication token (supports op:// or ${ENV})
+  token: your-secret-token-here        # or: op://Vault/rcm/token
   # Noise protocol keys (generate with rathole --genkey)
-  server_private_key: your-noise-private-key
-  server_public_key: your-noise-public-key
+  server_private_key: your-noise-private-key  # or: op://Vault/rcm/private-key
+  server_public_key: your-noise-public-key    # or: ${RATHOLE_PUBLIC_KEY}
