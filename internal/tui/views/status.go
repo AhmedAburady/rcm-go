@@ -233,7 +233,7 @@ func (m StatusModel) loadStatusCmd() tea.Cmd {
 		serverStatus := m.checkMachine(
 			m.config.Server.Host,
 			m.config.Server.User,
-			m.config.Server.SSHKey,
+			m.config.Server.SSHAuth(),
 			[]string{"rathole-server"},
 			m.config.Server.CaddyComposeDir,
 		)
@@ -241,7 +241,7 @@ func (m StatusModel) loadStatusCmd() tea.Cmd {
 		clientStatus := m.checkMachine(
 			m.config.Client.Host,
 			m.config.Client.User,
-			m.config.Client.SSHKey,
+			m.config.Client.SSHAuth(),
 			[]string{"rathole-client"},
 			"",
 		)
@@ -253,14 +253,14 @@ func (m StatusModel) loadStatusCmd() tea.Cmd {
 	}
 }
 
-func (m StatusModel) checkMachine(host, user, keyPath string, services []string, composeDir string) MachineStatus {
+func (m StatusModel) checkMachine(host, user string, auth ssh.AuthConfig, services []string, composeDir string) MachineStatus {
 	status := MachineStatus{
 		Host:     host,
 		Online:   false,
 		Services: []ServiceHealth{},
 	}
 
-	client, err := ssh.GetClient(host, user, keyPath)
+	client, err := ssh.GetClient(host, user, auth)
 	if err != nil {
 		return status
 	}

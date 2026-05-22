@@ -17,24 +17,41 @@ type Client struct {
 	client *ssh.Client
 }
 
-// NewClient creates a new SSH client
-func NewClient(host, user, keyPath string) (*Client, error) {
-	keyPath = expandPath(keyPath)
+// NewClient creates a new SSH client. Authentication is either delegated to
+// the SSH agent (agent mode) or backed by a private key file (file mode),
+// depending on auth.
+func NewClient(host, user string, auth AuthConfig) (*Client, error) {
+	var authMethod ssh.AuthMethod
 
-	key, err := os.ReadFile(keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("read key %s: %w", keyPath, err)
-	}
+	if auth.UseAgent {
+		// Agent mode: signing is delegated to the agent (e.g. 1Password). The
+		// agent connection only needs to live for the duration of the handshake.
+		method, conn, err := agentAuthMethod(auth.AgentSocket)
+		if err != nil {
+			return nil, err
+		}
+		defer conn.Close()
+		authMethod = method
+	} else {
+		// File mode: read and parse the private key from disk.
+		keyPath := expandPath(auth.KeyPath)
 
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("parse key: %w", err)
+		key, err := os.ReadFile(keyPath)
+		if err != nil {
+			return nil, fmt.Errorf("read key %s: %w", keyPath, err)
+		}
+
+		signer, err := ssh.ParsePrivateKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("parse key: %w", err)
+		}
+		authMethod = ssh.PublicKeys(signer)
 	}
 
 	config := &ssh.ClientConfig{
 		User: user,
 		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
+			authMethod,
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: Use known_hosts
 		Timeout:         10 * time.Second,

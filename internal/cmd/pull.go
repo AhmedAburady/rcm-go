@@ -82,7 +82,7 @@ func runPullPlain(cfg *config.Config) error {
 
 	// Connect to server
 	fmt.Printf("Connecting to %s...\n", cfg.Server.Host)
-	client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHKey)
+	client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
 	if err != nil {
 		return fmt.Errorf("connect to server: %w", err)
 	}

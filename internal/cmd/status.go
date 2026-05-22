@@ -63,7 +63,7 @@ func runStatusPlain(cfg *config.Config) error {
 
 	// Check server
 	fmt.Printf("\nServer (%s):\n", cfg.Server.Host)
-	serverClient, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHKey)
+	serverClient, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
 	if err != nil {
 		fmt.Printf("  ✗ Unable to connect: %v\n", err)
 	} else {
@@ -90,7 +90,7 @@ func runStatusPlain(cfg *config.Config) error {
 
 	// Check client
 	fmt.Printf("\nClient (%s):\n", cfg.Client.Host)
-	clientClient, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHKey)
+	clientClient, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHAuth())
 	if err != nil {
 		fmt.Printf("  ✗ Unable to connect: %v\n", err)
 	} else {

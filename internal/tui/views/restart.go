@@ -431,7 +431,7 @@ func (m RestartModel) doRestart() tea.Cmd {
 
 		// Restart server services
 		if m.restartRatholeServer || m.restartCaddy {
-			client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHKey)
+			client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHAuth())
 			if err != nil {
 				done.err = err
 				done.friendly = fmt.Sprintf("Couldn't connect to server (%s)", m.config.Server.Host)
@@ -485,7 +485,7 @@ func (m RestartModel) doRestart() tea.Cmd {
 
 		// Restart client services
 		if m.restartRatholeClient {
-			client, err := ssh.GetClient(m.config.Client.Host, m.config.Client.User, m.config.Client.SSHKey)
+			client, err := ssh.GetClient(m.config.Client.Host, m.config.Client.User, m.config.Client.SSHAuth())
 			if err != nil {
 				done.err = err
 				done.friendly = fmt.Sprintf("Couldn't connect to client (%s)", m.config.Client.Host)
