@@ -32,9 +32,9 @@ type AuthConfig struct {
 // agent connections that resolve to different sockets don't collide.
 func (a AuthConfig) cacheKey() string {
 	if a.UseAgent {
-		return "agent:" + resolveAgentSocket(a.AgentSocket)
+		return "agent:" + expandPath(resolveAgentSocket(a.AgentSocket))
 	}
-	return "key:" + a.KeyPath
+	return "key:" + expandPath(a.KeyPath)
 }
 
 // resolveAgentSocket determines the agent socket path to use:

@@ -20,18 +20,6 @@ persistent_comment = false
 [pr_questions]
 use_conversation_history = true
 
-[github_app]
-handle_push_trigger = true
-pr_commands = [
-  "/describe",
-  "/review",
-  "/improve"
-]
-push_commands = [
-  "/review",
-  "/improve"
-]
-
 [ignore]
 glob = [
   # Dependencies
