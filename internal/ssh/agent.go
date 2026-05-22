@@ -20,6 +20,16 @@ type AuthConfig struct {
 	AgentSocket string // optional agent socket override
 }
 
+// cacheKey returns a stable identity for the credential this config selects,
+// used to distinguish pooled connections that share a user@host but differ in
+// how they authenticate.
+func (a AuthConfig) cacheKey() string {
+	if a.UseAgent {
+		return "agent:" + a.AgentSocket
+	}
+	return "key:" + a.KeyPath
+}
+
 // agentAuthMethod dials the SSH agent and returns a public-key AuthMethod
 // backed by the agent's identities, along with the underlying connection.
 //

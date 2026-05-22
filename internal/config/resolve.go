@@ -25,7 +25,11 @@ type resolveTask struct {
 func resolveRefs(targets ...any) error {
 	var tasks []resolveTask
 	for _, t := range targets {
-		tasks = append(tasks, collectTasks(reflect.ValueOf(t).Elem())...)
+		v := reflect.ValueOf(t)
+		if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Struct {
+			return fmt.Errorf("resolveRefs: target must be a non-nil pointer to struct, got %T", t)
+		}
+		tasks = append(tasks, collectTasks(v.Elem())...)
 	}
 	if len(tasks) == 0 {
 		return nil

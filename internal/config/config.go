@@ -57,14 +57,29 @@ func Load() (*Config, error) {
 	if cfg.Client.Host == "" {
 		return nil, fmt.Errorf("client.host is required")
 	}
-	if !cfg.Server.SSHAgent && cfg.Server.SSHKey == "" {
-		return nil, fmt.Errorf("server: set ssh_key (file-based) or ssh_agent: true")
+	if err := validateSSHAuth("server", cfg.Server.SSHAgent, cfg.Server.SSHKey); err != nil {
+		return nil, err
 	}
-	if !cfg.Client.SSHAgent && cfg.Client.SSHKey == "" {
-		return nil, fmt.Errorf("client: set ssh_key (file-based) or ssh_agent: true")
+	if err := validateSSHAuth("client", cfg.Client.SSHAgent, cfg.Client.SSHKey); err != nil {
+		return nil, err
 	}
 
 	return &cfg, nil
+}
+
+// validateSSHAuth enforces that exactly one SSH auth mode is configured for a
+// host: either ssh_agent (agent mode) or ssh_key (file mode), never both and
+// never neither. Setting both is rejected rather than silently preferring the
+// agent, so a leftover ssh_key (or stray ssh_agent) surfaces as a clear error
+// instead of an unexpected identity.
+func validateSSHAuth(host string, useAgent bool, keyPath string) error {
+	switch {
+	case useAgent && keyPath != "":
+		return fmt.Errorf("%s: ssh_agent and ssh_key are mutually exclusive — set only one", host)
+	case !useAgent && keyPath == "":
+		return fmt.Errorf("%s: set ssh_key (file-based) or ssh_agent: true", host)
+	}
+	return nil
 }
 
 // ResolveRatholeSecrets resolves the op:// / ${ENV} references in the rathole

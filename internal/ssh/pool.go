@@ -10,13 +10,20 @@ var (
 	poolMu sync.Mutex
 )
 
+// poolKey identifies a pooled connection. It includes the auth identity so two
+// callers with the same user@host but different credentials (e.g. agent vs. a
+// key file) don't share a connection and silently authenticate as each other.
+func poolKey(host, user string, auth AuthConfig) string {
+	return user + "@" + host + "#" + auth.cacheKey()
+}
+
 // GetClient returns a cached connection or creates a new one.
-// This mimics the Python Fabric pattern - one connection per host, reused.
+// This mimics the Python Fabric pattern - one connection per host+auth, reused.
 func GetClient(host, user string, auth AuthConfig) (*Client, error) {
 	poolMu.Lock()
 	defer poolMu.Unlock()
 
-	key := user + "@" + host
+	key := poolKey(host, user, auth)
 
 	// Return cached connection if it exists
 	if client, ok := pool[key]; ok {
@@ -34,11 +41,11 @@ func GetClient(host, user string, auth AuthConfig) (*Client, error) {
 }
 
 // RemoveClient removes a client from the pool (call when connection fails)
-func RemoveClient(host, user string) {
+func RemoveClient(host, user string, auth AuthConfig) {
 	poolMu.Lock()
 	defer poolMu.Unlock()
 
-	key := user + "@" + host
+	key := poolKey(host, user, auth)
 	if client, ok := pool[key]; ok {
 		client.Close()
 		delete(pool, key)
