@@ -6,10 +6,15 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
+
+// agentDialTimeout bounds the connect to the agent socket so a stale or
+// unresponsive socket file can't hang the CLI indefinitely.
+const agentDialTimeout = 5 * time.Second
 
 // AuthConfig describes how to authenticate an SSH connection. A host uses
 // agent mode when UseAgent is set; otherwise it falls back to the file-based
@@ -22,12 +27,26 @@ type AuthConfig struct {
 
 // cacheKey returns a stable identity for the credential this config selects,
 // used to distinguish pooled connections that share a user@host but differ in
-// how they authenticate.
+// how they authenticate. For agent mode it keys on the *effective* socket
+// (after $SSH_AUTH_SOCK / default resolution), not the raw override, so two
+// agent connections that resolve to different sockets don't collide.
 func (a AuthConfig) cacheKey() string {
 	if a.UseAgent {
-		return "agent:" + a.AgentSocket
+		return "agent:" + resolveAgentSocket(a.AgentSocket)
 	}
 	return "key:" + a.KeyPath
+}
+
+// resolveAgentSocket determines the agent socket path to use:
+// explicit override → $SSH_AUTH_SOCK → platform default. Returns "" if none.
+func resolveAgentSocket(socket string) string {
+	if socket != "" {
+		return socket
+	}
+	if s := os.Getenv("SSH_AUTH_SOCK"); s != "" {
+		return s
+	}
+	return defaultAgentSocket()
 }
 
 // agentAuthMethod dials the SSH agent and returns a public-key AuthMethod
@@ -40,18 +59,12 @@ func (a AuthConfig) cacheKey() string {
 // Socket resolution order: explicit socket → $SSH_AUTH_SOCK → platform default
 // (the 1Password agent socket on macOS).
 func agentAuthMethod(socket string) (ssh.AuthMethod, net.Conn, error) {
-	sock := socket
-	if sock == "" {
-		sock = os.Getenv("SSH_AUTH_SOCK")
-	}
-	if sock == "" {
-		sock = defaultAgentSocket()
-	}
+	sock := resolveAgentSocket(socket)
 	if sock == "" {
 		return nil, nil, fmt.Errorf("no SSH agent socket found: set SSH_AUTH_SOCK or ssh_agent_socket")
 	}
 
-	conn, err := net.Dial("unix", expandPath(sock))
+	conn, err := net.DialTimeout("unix", expandPath(sock), agentDialTimeout)
 	if err != nil {
 		return nil, nil, fmt.Errorf("connect to SSH agent at %s: %w", sock, err)
 	}

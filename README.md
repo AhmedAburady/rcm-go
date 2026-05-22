@@ -78,6 +78,8 @@ RCM will:
 - **Service Comparison** - See which services exist locally vs remotely
 - **Auto-Pull** - Automatically pulls Caddyfile when setting up a new machine
 - **Safe Sync** - Warns before removing services
+- **Flexible SSH Auth** - Use a key file or any SSH agent, including [1Password](https://developer.1password.com/docs/ssh/) (private key never touches disk)
+- **Secret References** - Read config values from 1Password (`op://`) or environment variables (`${VAR}`)
 
 ## Installation
 
@@ -145,7 +147,9 @@ paths:
 server:
   host: "203.0.113.50"              # Your VPS IP
   user: "root"
-  ssh_key: "id_ed25519"             # SSH key filename
+  ssh_key: "id_ed25519"             # SSH key filename (file-based auth)
+  # ssh_agent: true                 # OR: authenticate via an SSH agent (e.g. 1Password)
+  # ssh_agent_socket: "~/..."       # optional; defaults to $SSH_AUTH_SOCK
   rathole_config: "/etc/rathole/server.toml"
   caddyfile: "~/rathole-caddy/caddy/Caddyfile"
   caddy_compose_dir: "~/rathole-caddy/caddy"
@@ -154,7 +158,7 @@ server:
 client:
   host: "192.168.1.10"              # Home machine IP (or hostname)
   user: "pi"
-  ssh_key: "id_ed25519"
+  ssh_key: "id_ed25519"             # or use ssh_agent: true (see server example)
   rathole_config: "/etc/rathole/client.toml"
 
 # Rathole keys
@@ -188,6 +192,40 @@ ha.example.com {
 ```
 
 The VPS port (`5001`) is extracted from `reverse_proxy 127.0.0.1:5001`.
+
+## SSH Authentication
+
+RCM connects to both machines over SSH. Each host (`server` and `client`) uses **one** of two authentication modes — set exactly one (setting both is rejected):
+
+**File-based key** (default):
+```yaml
+ssh_key: "id_ed25519"   # a bare name resolves under paths.ssh_dir, or give a full path
+```
+
+**SSH agent** — works with any standard agent (OpenSSH `ssh-agent`, `gpg-agent`, **1Password**, Secretive, a YubiKey-backed agent, …). With 1Password the private key stays in the vault and never touches disk:
+```yaml
+ssh_agent: true
+# ssh_agent_socket: "~/path/to/agent.sock"   # optional override
+```
+
+Socket resolution order: `ssh_agent_socket` → `$SSH_AUTH_SOCK` → 1Password's default socket on macOS. Set `ssh_agent_socket` only if your agent isn't already on `$SSH_AUTH_SOCK`.
+
+> **1Password tip:** export `SSH_AUTH_SOCK` to the 1Password socket in your shell so every tool (including RCM) picks it up automatically:
+> ```bash
+> export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agent.sock
+> ```
+
+## Secret References
+
+Any string value in `config.yaml` can be pulled from 1Password or the environment instead of being stored in plaintext:
+
+```yaml
+rathole:
+  token: "op://Vault/rcm/token"           # 1Password (requires the `op` CLI)
+  server_private_key: "${RATHOLE_KEY}"    # environment variable
+```
+
+Connectivity values (hosts, users, key paths) resolve at startup; the `rathole` secrets resolve only during `rcm sync`, so commands like `rcm status` never prompt for secrets they don't use.
 
 ## Usage
 
