@@ -85,7 +85,7 @@ func runRestartPlain(cfg *config.Config) error {
 }
 
 func restartServerServices(cfg *config.Config) error {
-	client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHKey)
+	client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
 	if err != nil {
 		return fmt.Errorf("connect to server: %w", err)
 	}
@@ -111,7 +111,7 @@ func restartServerServices(cfg *config.Config) error {
 }
 
 func restartClientServices(cfg *config.Config) error {
-	client, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHKey)
+	client, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHAuth())
 	if err != nil {
 		return fmt.Errorf("connect to client: %w", err)
 	}

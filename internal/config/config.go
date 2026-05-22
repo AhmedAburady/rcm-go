@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AhmedAburady/rcm-go/internal/ssh"
 	"github.com/spf13/viper"
 )
 
@@ -26,8 +27,14 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	// Resolve op:// and ${ENV} references
-	if err := resolveRefs(&cfg); err != nil {
+	// Resolve connectivity references (paths, hosts, users, key paths, agent
+	// sockets). These are needed by every command that connects, and in practice
+	// contain no 1Password references — so this is prompt-free. Deployment
+	// secrets in the rathole block are deliberately NOT resolved here; they are
+	// resolved at the point the generator consumes them (ResolveRatholeSecrets),
+	// so commands that never generate configs never authenticate to 1Password
+	// for secrets they don't use.
+	if err := resolveRefs(&cfg.Paths, &cfg.Server, &cfg.Client); err != nil {
 		return nil, fmt.Errorf("resolve config: %w", err)
 	}
 
@@ -39,6 +46,10 @@ func Load() (*Config, error) {
 	cfg.Server.SSHKey = resolveSSHKey(cfg.Server.SSHKey, cfg.Paths.SSHDir)
 	cfg.Client.SSHKey = resolveSSHKey(cfg.Client.SSHKey, cfg.Paths.SSHDir)
 
+	// Expand ~ in agent socket overrides (op:// / ${ENV} already resolved above)
+	cfg.Server.SSHAgentSocket = ExpandPath(cfg.Server.SSHAgentSocket)
+	cfg.Client.SSHAgentSocket = ExpandPath(cfg.Client.SSHAgentSocket)
+
 	// Validate required fields
 	if cfg.Server.Host == "" {
 		return nil, fmt.Errorf("server.host is required")
@@ -46,8 +57,37 @@ func Load() (*Config, error) {
 	if cfg.Client.Host == "" {
 		return nil, fmt.Errorf("client.host is required")
 	}
+	if !cfg.Server.SSHAgent && cfg.Server.SSHKey == "" {
+		return nil, fmt.Errorf("server: set ssh_key (file-based) or ssh_agent: true")
+	}
+	if !cfg.Client.SSHAgent && cfg.Client.SSHKey == "" {
+		return nil, fmt.Errorf("client: set ssh_key (file-based) or ssh_agent: true")
+	}
 
 	return &cfg, nil
+}
+
+// ResolveRatholeSecrets resolves the op:// / ${ENV} references in the rathole
+// block (token and Noise keys). These secrets are consumed only when generating
+// rathole configs, so resolution — and the 1Password authentication it may
+// trigger — is deferred to that point rather than performed eagerly in Load.
+// Call it immediately before generation. Idempotent: once resolved, the values
+// no longer look like references, so repeat calls are no-ops.
+func ResolveRatholeSecrets(cfg *Config) error {
+	if err := resolveRefs(&cfg.Rathole); err != nil {
+		return fmt.Errorf("resolve rathole secrets: %w", err)
+	}
+	return nil
+}
+
+// SSHAuth builds the SSH auth descriptor for the server connection.
+func (s ServerConfig) SSHAuth() ssh.AuthConfig {
+	return ssh.AuthConfig{KeyPath: s.SSHKey, UseAgent: s.SSHAgent, AgentSocket: s.SSHAgentSocket}
+}
+
+// SSHAuth builds the SSH auth descriptor for the client connection.
+func (c ClientConfig) SSHAuth() ssh.AuthConfig {
+	return ssh.AuthConfig{KeyPath: c.SSHKey, UseAgent: c.SSHAgent, AgentSocket: c.SSHAgentSocket}
 }
 
 // resolveSSHKey resolves the SSH key path

@@ -12,7 +12,7 @@ var (
 
 // GetClient returns a cached connection or creates a new one.
 // This mimics the Python Fabric pattern - one connection per host, reused.
-func GetClient(host, user, keyPath string) (*Client, error) {
+func GetClient(host, user string, auth AuthConfig) (*Client, error) {
 	poolMu.Lock()
 	defer poolMu.Unlock()
 
@@ -24,7 +24,7 @@ func GetClient(host, user, keyPath string) (*Client, error) {
 	}
 
 	// Create new connection
-	client, err := NewClient(host, user, keyPath)
+	client, err := NewClient(host, user, auth)
 	if err != nil {
 		return nil, err
 	}

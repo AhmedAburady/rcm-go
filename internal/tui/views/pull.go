@@ -356,7 +356,7 @@ func (m *PullModel) runStep(step pullStep) tea.Cmd {
 		switch step {
 		case pullStepConnecting:
 			// Connect and download in one step to reduce SSH connections
-			client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHKey)
+			client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHAuth())
 			if err != nil {
 				return pullErrMsg{err: fmt.Errorf("connect to server: %w", err)}
 			}

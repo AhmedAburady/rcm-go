@@ -548,7 +548,7 @@ func (m *SyncModel) runStep(step syncStep) tea.Cmd {
 			go func() {
 				remoteServices := make(map[string]parser.Service)
 				if m.config.Server.Host != "" && m.config.Server.Caddyfile != "" {
-					client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHKey)
+					client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHAuth())
 					if err == nil {
 						// Don't close - connection is pooled and reused
 						content, err := client.DownloadFile(m.config.Server.Caddyfile)
@@ -607,6 +607,14 @@ func (m *SyncModel) runStep(step syncStep) tea.Cmd {
 			return stepCompleteMsg{step: step, services: services, serviceRows: serviceRows}
 
 		case stepGenerating:
+			// The rathole token and Noise keys (op:// / ${ENV}) are consumed only
+			// here, during generation. Resolve them at the point of use — this is
+			// where any 1Password CLI authentication for secrets happens, and only
+			// for commands that actually generate configs.
+			if err := config.ResolveRatholeSecrets(m.config); err != nil {
+				return syncErrMsg{stepName: "Generate", err: err, friendly: "Couldn't resolve secrets from 1Password"}
+			}
+
 			serverTOML, err := generator.GenerateServerTOML(m.config, m.services)
 			if err != nil {
 				return syncErrMsg{stepName: "Generate", err: err, friendly: "Couldn't generate server config"}
@@ -629,7 +637,7 @@ func (m *SyncModel) runStep(step syncStep) tea.Cmd {
 
 			// Upload to server (rathole config + Caddyfile)
 			go func() {
-				client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHKey)
+				client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHAuth())
 				if err != nil {
 					resultCh <- taskResult{name: "server", err: err, friendly: fmt.Sprintf("Couldn't connect to server (%s)", m.config.Server.Host)}
 					return
@@ -661,7 +669,7 @@ func (m *SyncModel) runStep(step syncStep) tea.Cmd {
 
 			// Upload to client
 			go func() {
-				client, err := ssh.GetClient(m.config.Client.Host, m.config.Client.User, m.config.Client.SSHKey)
+				client, err := ssh.GetClient(m.config.Client.Host, m.config.Client.User, m.config.Client.SSHAuth())
 				if err != nil {
 					resultCh <- taskResult{name: "client", err: err, friendly: fmt.Sprintf("Couldn't connect to client (%s)", m.config.Client.Host)}
 					return
@@ -732,7 +740,7 @@ func (m *SyncModel) runStep(step syncStep) tea.Cmd {
 
 			// Restart rathole-server
 			go func() {
-				client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHKey)
+				client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHAuth())
 				if err != nil {
 					resultCh <- taskResult{name: "server", err: err, friendly: fmt.Sprintf("Couldn't connect to server (%s)", m.config.Server.Host)}
 					return
@@ -748,7 +756,7 @@ func (m *SyncModel) runStep(step syncStep) tea.Cmd {
 
 			// Restart rathole-client
 			go func() {
-				client, err := ssh.GetClient(m.config.Client.Host, m.config.Client.User, m.config.Client.SSHKey)
+				client, err := ssh.GetClient(m.config.Client.Host, m.config.Client.User, m.config.Client.SSHAuth())
 				if err != nil {
 					resultCh <- taskResult{name: "client", err: err, friendly: fmt.Sprintf("Couldn't connect to client (%s)", m.config.Client.Host)}
 					return
@@ -765,7 +773,7 @@ func (m *SyncModel) runStep(step syncStep) tea.Cmd {
 			// Restart Caddy (if configured)
 			if m.config.Server.CaddyComposeDir != "" {
 				go func() {
-					client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHKey)
+					client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHAuth())
 					if err != nil {
 						resultCh <- taskResult{name: "caddy", err: err, friendly: fmt.Sprintf("Couldn't connect to server (%s)", m.config.Server.Host)}
 						return

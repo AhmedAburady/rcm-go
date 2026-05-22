@@ -23,7 +23,9 @@ type PathsConfig struct {
 type ServerConfig struct {
 	Host            string `mapstructure:"host"`
 	User            string `mapstructure:"user"`
-	SSHKey          string `mapstructure:"ssh_key"`
+	SSHKey          string `mapstructure:"ssh_key"`          // file-based private key (file mode)
+	SSHAgent        bool   `mapstructure:"ssh_agent"`        // authenticate via the SSH agent (e.g. 1Password)
+	SSHAgentSocket  string `mapstructure:"ssh_agent_socket"` // optional agent socket override
 	RatholeConfig   string `mapstructure:"rathole_config"`
 	Caddyfile       string `mapstructure:"caddyfile"`
 	CaddyComposeDir string `mapstructure:"caddy_compose_dir"`
@@ -31,10 +33,12 @@ type ServerConfig struct {
 
 // ClientConfig holds home machine connection settings
 type ClientConfig struct {
-	Host          string `mapstructure:"host"`
-	User          string `mapstructure:"user"`
-	SSHKey        string `mapstructure:"ssh_key"`
-	RatholeConfig string `mapstructure:"rathole_config"`
+	Host           string `mapstructure:"host"`
+	User           string `mapstructure:"user"`
+	SSHKey         string `mapstructure:"ssh_key"`          // file-based private key (file mode)
+	SSHAgent       bool   `mapstructure:"ssh_agent"`        // authenticate via the SSH agent (e.g. 1Password)
+	SSHAgentSocket string `mapstructure:"ssh_agent_socket"` // optional agent socket override
+	RatholeConfig  string `mapstructure:"rathole_config"`
 }
 
 // RatholeConfig holds rathole-specific settings

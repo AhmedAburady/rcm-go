@@ -14,9 +14,19 @@ type resolveTask struct {
 	raw string
 }
 
-// resolveRefs walks all string fields in cfg and resolves op:// and ${ENV} references.
-func resolveRefs(cfg *Config) error {
-	tasks := collectTasks(reflect.ValueOf(cfg).Elem())
+// resolveRefs resolves op:// (1Password) and ${ENV} references in the given
+// struct pointers, walking each recursively.
+//
+// This is the single place that performs secret-bearing authentication against
+// 1Password (via `op inject`). Callers therefore control *when* that
+// authentication happens by choosing what to pass and when to call it — see
+// Load (connectivity, eager) and ResolveRatholeSecrets (deployment secrets,
+// deferred to the point of consumption).
+func resolveRefs(targets ...any) error {
+	var tasks []resolveTask
+	for _, t := range targets {
+		tasks = append(tasks, collectTasks(reflect.ValueOf(t).Elem())...)
+	}
 	if len(tasks) == 0 {
 		return nil
 	}

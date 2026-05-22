@@ -1,9 +1,15 @@
 # RCM Configuration Example
 # Copy this to ~/.config/rcm/config.yaml and update values
 #
-# Value references (resolved at load time):
+# Value references:
 #   op://vault/item/field  — 1Password secret (requires `op` CLI)
 #   ${ENV_VAR}             — environment variable
+#
+# When they resolve (so authentication happens only where a value is used):
+#   - Connectivity fields (paths, hosts, users, ssh keys/sockets): at config load.
+#   - rathole secrets (token, Noise keys): only during `sync`, when configs are
+#     generated. Commands like status/pull/restart never read them, so they
+#     never trigger a 1Password CLI prompt for them.
 
 paths:
   # Local Caddyfile path
@@ -16,8 +22,18 @@ server:
   host: vps.example.com
   # SSH user (default: root)
   user: root
-  # Path to SSH private key
+  # SSH auth — provide ONE of the following:
+  #   ssh_key:    file-based private key on disk (bare name resolves under ssh_dir)
+  #   ssh_agent:  authenticate via ANY standard SSH agent — OpenSSH ssh-agent,
+  #               gpg-agent, 1Password, Secretive, a YubiKey-backed agent, etc.
+  #               The agent does the signing; with 1Password the key stays in
+  #               the vault and never touches disk.
   ssh_key: ~/.ssh/id_ed25519
+  # ssh_agent: true
+  # Socket resolution order: ssh_agent_socket -> $SSH_AUTH_SOCK -> 1Password's
+  # default socket on macOS. Set ssh_agent_socket only if your agent is not on
+  # $SSH_AUTH_SOCK. (1Password is just the macOS fallback, not a requirement.)
+  # ssh_agent_socket: ~/path/to/agent.sock
   # Remote rathole server config path
   rathole_config: /etc/rathole/server.toml
   # Remote Caddyfile path
@@ -30,8 +46,10 @@ client:
   host: home.local
   # SSH user
   user: admin
-  # Path to SSH private key
+  # SSH auth — same options as server (provide ssh_key OR ssh_agent: true)
   ssh_key: ~/.ssh/id_ed25519
+  # ssh_agent: true
+  # ssh_agent_socket: ~/...
   # Remote rathole client config path
   rathole_config: /etc/rathole/client.toml
 

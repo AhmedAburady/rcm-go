@@ -252,7 +252,7 @@ func (m ListModel) loadServicesCmd() tea.Cmd {
 		// Fetch remote services
 		remoteServices := make(map[string]parser.Service)
 		if m.config.Server.Host != "" && m.config.Server.Caddyfile != "" {
-			client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHKey)
+			client, err := ssh.GetClient(m.config.Server.Host, m.config.Server.User, m.config.Server.SSHAuth())
 			if err == nil {
 				// Don't close - connection is pooled and reused
 				content, err := client.DownloadFile(m.config.Server.Caddyfile)
