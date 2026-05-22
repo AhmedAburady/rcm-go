@@ -20,7 +20,7 @@ persistent_comment = false
 [pr_questions]
 use_conversation_history = true
 
-[gitea]
+[github_app]
 handle_push_trigger = true
 pr_commands = [
   "/describe",
@@ -28,7 +28,8 @@ pr_commands = [
   "/improve"
 ]
 push_commands = [
-  "/review"
+  "/review",
+  "/improve"
 ]
 
 [ignore]
