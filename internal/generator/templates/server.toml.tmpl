@@ -10,5 +10,5 @@ type = "noise"
 local_private_key = "{{ .Rathole.ServerPrivateKey }}"
 {{ range .Services }}
 [server.services.{{ .Name }}]
-bind_addr = "0.0.0.0:{{ .VPSPort }}"
+bind_addr = "127.0.0.1:{{ .VPSPort }}"
 {{ end }}
