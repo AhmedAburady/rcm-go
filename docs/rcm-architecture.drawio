@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="rcm-go">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Legend -->
+        <mxCell id="leg" value="Legend" style="swimlane;startSize=24;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="300" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="legd" value="rcm deploy flow  (SSH: parse, generate, upload, restart)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#d79b00;" vertex="1" parent="leg">
+          <mxGeometry x="40" y="34" width="250" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legl1" value="" style="endArrow=classic;html=1;strokeColor=#d79b00;strokeWidth=2;dashed=1;" edge="1" parent="leg"><mxGeometry relative="1" as="geometry"><mxPoint x="10" y="44" as="sourcePoint"/><mxPoint x="36" y="44" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="legr" value="runtime traffic  (HTTPS  →  Caddy  →  Rathole tunnel  →  home app)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#82b366;" vertex="1" parent="leg">
+          <mxGeometry x="40" y="62" width="260" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legl2" value="" style="endArrow=classic;html=1;strokeColor=#82b366;strokeWidth=2;" edge="1" parent="leg"><mxGeometry relative="1" as="geometry"><mxPoint x="10" y="72" as="sourcePoint"/><mxPoint x="36" y="72" as="targetPoint"/></mxGeometry></mxCell>
+
+        <!-- ============ LOCAL WORKSTATION ============ -->
+        <mxCell id="local" value="Local Workstation&#xa;(rcm CLI)" style="swimlane;startSize=44;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="40" y="200" width="360" height="640" as="geometry" />
+        </mxCell>
+        <mxCell id="cfg" value="~/.config/rcm/config.yaml&#xa;(server / client / rathole)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="local">
+          <mxGeometry x="20" y="56" width="150" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="caddyf" value="Caddyfile&#xa;(source of truth)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="local">
+          <mxGeometry x="190" y="56" width="150" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="cli" value="rcm  (cobra + fang)&#xa;list · sync · pull · restart · status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;fontStyle=1;fontSize=12;" vertex="1" parent="local">
+          <mxGeometry x="40" y="140" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- sync pipeline -->
+        <mxCell id="p1" value="1 · parser&#xa;extract services {name, localAddr, vpsPort, domains}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="local">
+          <mxGeometry x="40" y="230" width="280" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" value="2 · generator (text/template)&#xa;server.toml  +  client.toml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="local">
+          <mxGeometry x="40" y="320" width="280" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" value="3 · ssh upload  (base64 over SSH)&#xa;push TOML + Caddyfile to hosts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="local">
+          <mxGeometry x="40" y="410" width="280" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" value="4 · ssh restart  (systemctl / docker compose)&#xa;rathole-server · caddy · rathole-client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="local">
+          <mxGeometry x="40" y="500" width="280" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="secrets" value="secrets resolved on demand:  op://  /  ${ENV}" style="text;html=1;align=center;fontSize=10;fontColor=#9673a6;" vertex="1" parent="local">
+          <mxGeometry x="40" y="570" width="280" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- internal local edges -->
+        <mxCell id="e_cf_cli" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6c8ebf;" edge="1" parent="local" source="caddyf" target="cli"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_cfg_cli" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6c8ebf;" edge="1" parent="local" source="cfg" target="cli"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_p12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9673a6;" edge="1" parent="local" source="p1" target="p2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_p23" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9673a6;" edge="1" parent="local" source="p2" target="p3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_p34" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;" edge="1" parent="local" source="p3" target="p4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e_cli_p1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#10739e;" edge="1" parent="local" source="cli" target="p1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ============ VPS ============ -->
+        <mxCell id="vps" value="VPS  (Server / public)" style="swimlane;startSize=34;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="560" y="240" width="360" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="vcaddy" value="Caddy  (docker compose)&#xa;:80 / :443  ·  TLS, routes domain → 127.0.0.1:vpsPort" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;" vertex="1" parent="vps">
+          <mxGeometry x="30" y="60" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="vcfile" value="/etc/caddy/Caddyfile" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;dashed=1;" vertex="1" parent="vps">
+          <mxGeometry x="30" y="140" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="vstoml" value="/etc/rathole/server.toml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;dashed=1;" vertex="1" parent="vps">
+          <mxGeometry x="190" y="140" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="vrathole" value="rathole-server  (systemd)&#xa;bind 0.0.0.0:2333  ·  Noise encryption&#xa;exposes 127.0.0.1:vpsPort per service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;" vertex="1" parent="vps">
+          <mxGeometry x="30" y="210" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e_vc_vr" value="proxy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;fontColor=#82b366;exitX=0.5;exitY=1;entryX=0.5;entryY=0;flowAnimation=1;" edge="1" parent="vps" source="vcaddy" target="vrathole"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ============ HOME MACHINE ============ -->
+        <mxCell id="home" value="Home Machine  (Client / private LAN)" style="swimlane;startSize=34;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="240" width="360" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="hctoml" value="/etc/rathole/client.toml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;dashed=1;" vertex="1" parent="home">
+          <mxGeometry x="110" y="60" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="hrathole" value="rathole-client  (systemd)&#xa;dials VPS :2333  ·  maps each&#xa;vpsPort ↔ local_addr" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="home">
+          <mxGeometry x="30" y="130" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="happs" value="Local apps on the LAN&#xa;192.168.x.x:3000 · :8080 · …" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;fontSize=11;fontStyle=1;" vertex="1" parent="home">
+          <mxGeometry x="30" y="250" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e_hr_ha" value="forward" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;fontColor=#82b366;exitX=0.5;exitY=1;entryX=0.5;entryY=0;flowAnimation=1;" edge="1" parent="home" source="hrathole" target="happs"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ============ INTERNET USERS ============ -->
+        <mxCell id="users" value="Internet users&#xa;https://app.example.com" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="620" y="60" width="240" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- ============ RUNTIME TRAFFIC (green) ============ -->
+        <mxCell id="t_users_caddy" value="HTTPS :443" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;fontColor=#82b366;flowAnimation=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="users" target="vcaddy"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="t_tunnel" value="Rathole tunnel&#xa;(Noise, reverse)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=3;fontColor=#82b366;flowAnimation=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="vrathole" target="hrathole"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ============ DEPLOY FLOW (orange dashed) ============ -->
+        <mxCell id="d_upload_vps" value="SSH upload + restart" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;strokeWidth=2;dashed=1;fontColor=#d79b00;labelBackgroundColor=#ffffff;exitX=1;exitY=0.6;entryX=0;entryY=0.5;" edge="1" parent="1" source="p3" target="vps"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="d_upload_home" value="SSH upload + restart" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;strokeWidth=2;dashed=1;fontColor=#d79b00;labelBackgroundColor=#ffffff;exitX=1;exitY=0.8;entryX=0;entryY=0.85;" edge="1" parent="1" source="p4" target="home"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="470" y="760"/><mxPoint x="470" y="715"/><mxPoint x="1060" y="715"/></Array></mxGeometry></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

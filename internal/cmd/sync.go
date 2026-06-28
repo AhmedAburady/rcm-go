@@ -92,7 +92,7 @@ func runSync(c *cobra.Command, cfg *config.Config, dryRun bool) error {
 		restartErrs = append(restartErrs, err)
 	}
 	if err := restartCaddy(c, serverClient, cfg.Server.CaddyComposeDir); err != nil {
-		restartErrs = append(restartErrs, fmt.Errorf("restart caddy: %w", err))
+		restartErrs = append(restartErrs, err)
 	}
 
 	out(c, "%s", ui.Heading("Client (%s)", cfg.Client.Host))

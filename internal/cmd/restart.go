@@ -65,7 +65,7 @@ func restartServerServices(c *cobra.Command, cfg *config.Config) error {
 		return err
 	}
 	if err := restartCaddy(c, client, cfg.Server.CaddyComposeDir); err != nil {
-		return fmt.Errorf("restart caddy: %w", err)
+		return err
 	}
 	return nil
 }

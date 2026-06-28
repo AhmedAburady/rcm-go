@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/AhmedAburady/rcm-go/internal/config"
@@ -32,7 +34,7 @@ func restartCaddy(c *cobra.Command, client *ssh.Client, composeDir string) error
 	out(c, "%s", ui.Step("Restarting caddy …"))
 	if err := client.RestartDockerCompose(composeDir); err != nil {
 		out(c, "  %s", ui.Fail("caddy"))
-		return err
+		return fmt.Errorf("restart caddy: %w", err)
 	}
 	out(c, "  %s", ui.OK("caddy"))
 	return nil
