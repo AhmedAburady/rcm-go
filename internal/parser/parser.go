@@ -13,8 +13,9 @@ var (
 	// Pattern: # service_name: local_addr
 	serviceCommentRe = regexp.MustCompile(`^#\s*(\w[\w-]*\w|\w):\s*(.+)$`)
 
-	// Pattern: domain.com, domain2.com {
-	domainBlockRe = regexp.MustCompile(`^([a-zA-Z0-9.,\s\-_]+)\s*\{`)
+	// Pattern: domain.com, domain2.com { — allows scheme prefixes and explicit
+	// ports/paths in the site address (e.g. http://example.com, example.com:8443).
+	domainBlockRe = regexp.MustCompile(`^([a-zA-Z0-9.,\s\-_:/*]+?)\s*\{`)
 
 	// Pattern: reverse_proxy [http://]localhost|127.0.0.1:PORT
 	reverseProxyRe = regexp.MustCompile(`reverse_proxy\s+(?:https?://)?(?:localhost|127\.0\.0\.1):(\d+)`)
@@ -51,33 +52,34 @@ func Parse(scanner *bufio.Scanner) ([]Service, error) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 
-		// Skip empty lines
 		if line == "" {
 			continue
 		}
 
-		// Check for service comment
-		if matches := serviceCommentRe.FindStringSubmatch(line); matches != nil {
-			pendingService = &struct {
-				name      string
-				localAddr string
-			}{
-				name:      matches[1],
-				localAddr: strings.TrimSpace(matches[2]),
+		// Only match annotations and domain blocks at the top level, so nested
+		// directives like `tls force_automate {` aren't mistaken for a new block.
+		if braceCount == 0 {
+			// Check for service comment
+			if matches := serviceCommentRe.FindStringSubmatch(line); matches != nil {
+				pendingService = &struct {
+					name      string
+					localAddr string
+				}{
+					name:      matches[1],
+					localAddr: strings.TrimSpace(matches[2]),
+				}
+				continue
 			}
-			continue
+
+			// Check for domain block start
+			if matches := domainBlockRe.FindStringSubmatch(line); matches != nil {
+				currentDomains = parseDomains(matches[1])
+				braceCount += netBraces(line)
+				continue
+			}
 		}
 
-		// Check for domain block start
-		if matches := domainBlockRe.FindStringSubmatch(line); matches != nil {
-			domainStr := matches[1]
-			currentDomains = parseDomains(domainStr)
-			braceCount++
-			continue
-		}
-
-		// Track braces
-		braceCount += strings.Count(line, "{") - strings.Count(line, "}")
+		braceCount += netBraces(line)
 
 		// Check for reverse_proxy inside a block
 		if braceCount > 0 && pendingService != nil {
@@ -121,9 +123,36 @@ func Parse(scanner *bufio.Scanner) ([]Service, error) {
 	return services, nil
 }
 
+// netBraces returns the net brace depth change for a line ({ as +1, } as -1),
+// ignoring braces inside double-quoted strings and after a `#` comment so a
+// stray brace in a comment or string literal can't desync the block counter.
+func netBraces(line string) int {
+	n := 0
+	inQuote := false
+	for i := 0; i < len(line); i++ {
+		switch line[i] {
+		case '"':
+			inQuote = !inQuote
+		case '#':
+			if !inQuote {
+				return n
+			}
+		case '{':
+			if !inQuote {
+				n++
+			}
+		case '}':
+			if !inQuote {
+				n--
+			}
+		}
+	}
+	return n
+}
+
 func parseDomains(s string) []string {
 	var domains []string
-	for _, d := range strings.Split(s, ",") {
+	for d := range strings.SplitSeq(s, ",") {
 		d = strings.TrimSpace(d)
 		if d != "" {
 			domains = append(domains, d)

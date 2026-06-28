@@ -15,15 +15,3 @@ func (s *Service) PrimaryDomain() string {
 	}
 	return ""
 }
-
-// DomainsString returns all domains as a comma-separated string
-func (s *Service) DomainsString() string {
-	if len(s.Domains) == 0 {
-		return ""
-	}
-	result := s.Domains[0]
-	for i := 1; i < len(s.Domains); i++ {
-		result += ", " + s.Domains[i]
-	}
-	return result
-}

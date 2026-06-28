@@ -15,7 +15,7 @@ var templateFS embed.FS
 
 // GenerateServerTOML generates server.toml content
 func GenerateServerTOML(cfg *config.Config, services []parser.Service) (string, error) {
-	return executeTemplate("templates/server.toml.tmpl", map[string]interface{}{
+	return executeTemplate("templates/server.toml.tmpl", map[string]any{
 		"Rathole":  cfg.Rathole,
 		"Services": services,
 	})
@@ -23,14 +23,14 @@ func GenerateServerTOML(cfg *config.Config, services []parser.Service) (string, 
 
 // GenerateClientTOML generates client.toml content
 func GenerateClientTOML(cfg *config.Config, services []parser.Service) (string, error) {
-	return executeTemplate("templates/client.toml.tmpl", map[string]interface{}{
+	return executeTemplate("templates/client.toml.tmpl", map[string]any{
 		"Server":   cfg.Server,
 		"Rathole":  cfg.Rathole,
 		"Services": services,
 	})
 }
 
-func executeTemplate(name string, data interface{}) (string, error) {
+func executeTemplate(name string, data any) (string, error) {
 	tmplContent, err := templateFS.ReadFile(name)
 	if err != nil {
 		return "", fmt.Errorf("read template %s: %w", name, err)

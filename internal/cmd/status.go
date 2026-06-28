@@ -1,109 +1,79 @@
 package cmd
 
 import (
-	"fmt"
-	"strings"
+	"sync"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/AhmedAburady/rcm-go/internal/config"
 	"github.com/AhmedAburady/rcm-go/internal/ssh"
-	"github.com/AhmedAburady/rcm-go/internal/tui/views"
+	"github.com/AhmedAburady/rcm-go/internal/ui"
 )
 
-var statusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show service status",
-	Long: `Check the health of rathole and caddy services on both machines.
+func newStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Show service status",
+		Long: `Check the health of rathole and caddy services on both machines.
 
-This command connects to both the VPS and home client via SSH
-and checks the status of:
-- rathole-server (on VPS)
-- rathole-client (on home machine)
-- caddy (docker compose on VPS)`,
-	RunE: runStatus,
-}
-
-var statusPlain bool
-
-func init() {
-	rootCmd.AddCommand(statusCmd)
-	statusCmd.Flags().BoolVarP(&statusPlain, "plain", "p", false, "Plain text output (no TUI)")
-}
-
-func runStatus(cmd *cobra.Command, args []string) error {
-	if configErr != nil {
-		return configErr
-	}
-
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	if statusPlain {
-		return runStatusPlain(cfg)
-	}
-
-	// Launch TUI with main app, starting at status view
-	model := views.NewAppModelWithView(cfg, views.ViewStatus)
-	p := tea.NewProgram(model, tea.WithAltScreen())
-
-	if _, err := p.Run(); err != nil {
-		return fmt.Errorf("TUI error: %w", err)
-	}
-
-	return nil
-}
-
-func runStatusPlain(cfg *config.Config) error {
-	fmt.Println("SERVICE STATUS")
-	fmt.Println(strings.Repeat("-", 60))
-
-	// Check server
-	fmt.Printf("\nServer (%s):\n", cfg.Server.Host)
-	serverClient, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
-	if err != nil {
-		fmt.Printf("  ✗ Unable to connect: %v\n", err)
-	} else {
-		// Don't close - connection is pooled and reused
-
-		// Check rathole-server
-		running, status, _ := serverClient.GetServiceStatus("rathole-server")
-		icon := "✗"
-		if running {
-			icon = "✓"
-		}
-		fmt.Printf("  %s rathole-server: %s\n", icon, status)
-
-		// Check caddy if configured
-		if cfg.Server.CaddyComposeDir != "" {
-			running, status, _ := serverClient.GetDockerComposeStatus(cfg.Server.CaddyComposeDir)
-			icon := "✗"
-			if running {
-				icon = "✓"
+Connects to the VPS and home client via SSH and checks rathole-server,
+rathole-client, and caddy (docker compose on the VPS).`,
+		Args: cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error {
+			cfg, err := loadCfg()
+			if err != nil {
+				return err
 			}
-			fmt.Printf("  %s caddy (docker): %s\n", icon, status)
-		}
-	}
 
-	// Check client
-	fmt.Printf("\nClient (%s):\n", cfg.Client.Host)
-	clientClient, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHAuth())
+			// Probe both hosts concurrently; buffer each host's lines so output
+			// stays in a stable server-then-client order regardless of timing.
+			var serverLines, clientLines []string
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() { defer wg.Done(); serverLines = probeServer(cfg) }()
+			go func() { defer wg.Done(); clientLines = probeClient(cfg) }()
+			wg.Wait()
+
+			for _, l := range append(serverLines, clientLines...) {
+				out(c, "%s", l)
+			}
+			return nil
+		},
+	}
+}
+
+func probeServer(cfg *config.Config) []string {
+	lines := []string{ui.Heading("Server (%s)", cfg.Server.Host)}
+	client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
 	if err != nil {
-		fmt.Printf("  ✗ Unable to connect: %v\n", err)
-	} else {
-		// Don't close - connection is pooled and reused
-
-		// Check rathole-client
-		running, status, _ := clientClient.GetServiceStatus("rathole-client")
-		icon := "✗"
-		if running {
-			icon = "✓"
-		}
-		fmt.Printf("  %s rathole-client: %s\n", icon, status)
+		return append(lines, "  "+ui.Fail("unable to connect: %v", err))
 	}
+	lines = append(lines, statusLine(serviceStatus(client, "rathole-server")))
+	if cfg.Server.CaddyComposeDir != "" {
+		running, status, _ := client.GetDockerComposeStatus(cfg.Server.CaddyComposeDir)
+		lines = append(lines, statusLine("caddy (docker)", running, status))
+	}
+	return lines
+}
 
-	return nil
+func probeClient(cfg *config.Config) []string {
+	lines := []string{ui.Heading("Client (%s)", cfg.Client.Host)}
+	client, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHAuth())
+	if err != nil {
+		return append(lines, "  "+ui.Fail("unable to connect: %v", err))
+	}
+	return append(lines, statusLine(serviceStatus(client, "rathole-client")))
+}
+
+func serviceStatus(client *ssh.Client, name string) (string, bool, string) {
+	running, status, _ := client.GetServiceStatus(name)
+	return name, running, status
+}
+
+func statusLine(name string, running bool, status string) string {
+	mark := ui.Cross()
+	if running {
+		mark = ui.Check()
+	}
+	return "  " + mark + " " + name + ": " + status
 }

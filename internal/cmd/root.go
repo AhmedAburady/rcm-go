@@ -4,68 +4,63 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/AhmedAburady/rcm-go/internal/config"
-	"github.com/AhmedAburady/rcm-go/internal/tui/views"
 )
 
-var cfgFile string
+var configPath string
 
-var rootCmd = &cobra.Command{
-	Use:   "rcm",
-	Short: "Rathole Caddy Manager",
-	Long: `RCM is a CLI tool that simplifies managing Rathole tunnels
+// Root returns the root command for the CLI.
+func Root() *cobra.Command {
+	cobra.OnInitialize(initConfig)
+
+	root := &cobra.Command{
+		Use:   "rcm",
+		Short: "Rathole Caddy Manager",
+		Long: `RCM is a CLI tool that simplifies managing Rathole tunnels
 with Caddy reverse proxy integration.
 
 It uses the Caddyfile as the source of truth, parsing service
-definitions and generating rathole configurations automatically.
-
-Run without arguments to launch the interactive TUI.`,
-	RunE: runApp,
-}
-
-// runApp launches the main TUI application
-func runApp(cmd *cobra.Command, args []string) error {
-	// Check for config file error first
-	if configErr != nil {
-		return configErr
+definitions and generating rathole configurations automatically.`,
 	}
-
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	model := views.NewAppModel(cfg)
-	p := tea.NewProgram(model, tea.WithAltScreen())
-
-	if _, err := p.Run(); err != nil {
-		return fmt.Errorf("TUI error: %w", err)
-	}
-
-	return nil
-}
-
-// Execute runs the root command
-func Execute() error {
-	return rootCmd.Execute()
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "",
+	root.PersistentFlags().StringVarP(&configPath, "config", "c", "",
 		"config file (default: ~/.config/rcm/config.yaml)")
+
+	root.AddCommand(newListCmd(), newSyncCmd(), newStatusCmd(), newPullCmd(), newRestartCmd(), newVersionCmd())
+	return root
+}
+
+var loadedCfg *config.Config
+
+// loadCfg loads and caches the configuration for the process, surfacing any
+// error recorded while reading the config file.
+func loadCfg() (*config.Config, error) {
+	if loadedCfg != nil {
+		return loadedCfg, nil
+	}
+	if configErr != nil {
+		return nil, configErr
+	}
+	c, err := config.Load()
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+	loadedCfg = c
+	return c, nil
+}
+
+// out writes a formatted line to the command's output stream.
+func out(cmd *cobra.Command, format string, args ...any) {
+	fmt.Fprintf(cmd.OutOrStdout(), format+"\n", args...)
 }
 
 var configErr error
 
 func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
+	if configPath != "" {
+		viper.SetConfigFile(configPath)
 	} else {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
@@ -81,7 +76,6 @@ func initConfig() {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Store the error for later - commands that need config will check this
 			home, _ := os.UserHomeDir()
 			configErr = fmt.Errorf("config file not found\n\nCreate one at: %s/.config/rcm/config.yaml\n\nSee: https://github.com/AhmedAburady/rcm-go#configuration", home)
 		} else {
@@ -89,9 +83,4 @@ func initConfig() {
 			os.Exit(1)
 		}
 	}
-}
-
-// GetConfigError returns any config loading error
-func GetConfigError() error {
-	return configErr
 }
