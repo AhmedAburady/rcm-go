@@ -50,18 +50,6 @@ func GetClient(host, user string, auth AuthConfig) (*Client, error) {
 	return client, nil
 }
 
-// RemoveClient removes a client from the pool (call when connection fails)
-func RemoveClient(host, user string, auth AuthConfig) {
-	poolMu.Lock()
-	defer poolMu.Unlock()
-
-	key := poolKey(host, user, auth)
-	if client, ok := pool[key]; ok {
-		client.Close()
-		delete(pool, key)
-	}
-}
-
 // CloseAll closes all cached connections. Call this when the app exits.
 func CloseAll() {
 	poolMu.Lock()

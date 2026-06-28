@@ -46,17 +46,6 @@ func (c *Client) DownloadContent(remotePath string) (string, error) {
 	return output, nil
 }
 
-// FileExists checks if a remote file exists using test command (no SFTP)
-func (c *Client) FileExists(remotePath string) (bool, error) {
-	remotePath = c.expandRemotePath(remotePath)
-
-	_, err := c.Run(fmt.Sprintf("test -f %q && echo exists", remotePath))
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
-}
-
 // RestartService restarts a systemd service (uses sudo if not root)
 func (c *Client) RestartService(name string) error {
 	cmd := fmt.Sprintf("systemctl restart %s", name)

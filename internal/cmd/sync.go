@@ -53,7 +53,7 @@ func runSync(c *cobra.Command, cfg *config.Config, dryRun bool) error {
 	out(c, "%s", ui.RenderServices(services))
 
 	if dryRun {
-		printSyncSummary(c, cfg, services)
+		// Purely local preview: no SSH, so it is safe to run offline.
 		out(c, "%s", ui.Info("dry-run: nothing deployed"))
 		return nil
 	}
@@ -142,30 +142,4 @@ func uploadClient(c *cobra.Command, cfg *config.Config, clientTOML string) (*ssh
 		return nil, fmt.Errorf("upload rathole config: %w", err)
 	}
 	return client, nil
-}
-
-// printSyncSummary reports how many local services are new versus already present
-// on the server. A failure to reach or parse the remote Caddyfile is surfaced as
-// a warning rather than silently reporting every service as new.
-func printSyncSummary(c *cobra.Command, cfg *config.Config, services []parser.Service) {
-	if cfg.Server.Host == "" || cfg.Server.Caddyfile == "" {
-		return
-	}
-	remoteSvcs, err := fetchRemoteServices(cfg)
-	if err != nil {
-		out(c, "%s", ui.Warn("could not read remote Caddyfile (%v); new/existing counts unavailable", err))
-		return
-	}
-
-	remote := make(map[string]bool, len(remoteSvcs))
-	for _, s := range remoteSvcs {
-		remote[s.Name] = true
-	}
-	newCount := 0
-	for _, s := range services {
-		if !remote[s.Name] {
-			newCount++
-		}
-	}
-	out(c, "%s", ui.Info("%d new, %d existing", newCount, len(services)-newCount))
 }

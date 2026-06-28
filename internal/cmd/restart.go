@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -33,19 +34,25 @@ restart only specific machines.`,
 				server, client = true, true
 			}
 
+			// Best-effort across both machines: a server failure must not skip the
+			// client, so the operator sees the full picture in one run (matches sync).
+			var errs []error
 			if server {
 				out(c, "%s", ui.Heading("Server (%s)", cfg.Server.Host))
 				if err := restartServerServices(c, cfg); err != nil {
-					return err
+					errs = append(errs, err)
 				}
 			}
 			if client {
 				out(c, "%s", ui.Heading("Client (%s)", cfg.Client.Host))
 				if err := restartClientServices(c, cfg); err != nil {
-					return err
+					errs = append(errs, err)
 				}
 			}
 
+			if len(errs) > 0 {
+				return errors.Join(errs...)
+			}
 			out(c, "%s", ui.OK("All services restarted"))
 			return nil
 		},

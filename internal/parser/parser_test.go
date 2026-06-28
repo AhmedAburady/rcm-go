@@ -157,19 +157,3 @@ c.com:8443 {
 		t.Errorf("Expected domain 'c.com:8443', got %v", services[0].Domains)
 	}
 }
-
-func TestPrimaryDomain(t *testing.T) {
-	s := Service{
-		Name:    "test",
-		Domains: []string{"first.example.com", "second.example.com"},
-	}
-
-	if s.PrimaryDomain() != "first.example.com" {
-		t.Errorf("Expected 'first.example.com', got '%s'", s.PrimaryDomain())
-	}
-
-	s2 := Service{Name: "empty"}
-	if s2.PrimaryDomain() != "" {
-		t.Errorf("Expected empty string, got '%s'", s2.PrimaryDomain())
-	}
-}

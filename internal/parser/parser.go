@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+// Service represents a parsed service from Caddyfile.
+type Service struct {
+	Name      string   // Service name from comment
+	LocalAddr string   // Local address (e.g., 192.168.1.100:8080)
+	VPSPort   int      // Port on VPS (from reverse_proxy)
+	Domains   []string // Domain names
+}
+
 var (
 	// Pattern: # service_name: local_addr
 	serviceCommentRe = regexp.MustCompile(`^#\s*(\w[\w-]*\w|\w):\s*(.+)$`)

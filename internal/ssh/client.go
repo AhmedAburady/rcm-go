@@ -93,40 +93,12 @@ func (c *Client) Run(cmd string) (string, error) {
 	return stdout.String(), nil
 }
 
-// Host returns the host address
-func (c *Client) Host() string {
-	return c.host
-}
-
-// User returns the SSH user
-func (c *Client) User() string {
-	return c.user
-}
-
 // Close closes the SSH connection
 func (c *Client) Close() error {
 	if c.client != nil {
 		return c.client.Close()
 	}
 	return nil
-}
-
-// DownloadFile reads a file from the remote server and returns its content
-func (c *Client) DownloadFile(remotePath string) (string, error) {
-	// Expand ~ for remote path based on user
-	if len(remotePath) > 0 && remotePath[0] == '~' {
-		if c.user == "root" {
-			remotePath = "/root" + remotePath[1:]
-		} else {
-			remotePath = "/home/" + c.user + remotePath[1:]
-		}
-	}
-
-	output, err := c.Run(fmt.Sprintf("cat %q", remotePath))
-	if err != nil {
-		return "", fmt.Errorf("download %s: %w", remotePath, err)
-	}
-	return output, nil
 }
 
 func expandPath(path string) string {

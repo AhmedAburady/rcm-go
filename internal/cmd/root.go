@@ -14,8 +14,6 @@ var configPath string
 
 // Root returns the root command for the CLI.
 func Root() *cobra.Command {
-	cobra.OnInitialize(initConfig)
-
 	root := &cobra.Command{
 		Use:   "rcm",
 		Short: "Rathole Caddy Manager",
@@ -24,6 +22,9 @@ with Caddy reverse proxy integration.
 
 It uses the Caddyfile as the source of truth, parsing service
 definitions and generating rathole configurations automatically.`,
+		// PersistentPreRun (not cobra.OnInitialize, which appends to a process-wide
+		// list every Root() call) loads config fresh for the executing command.
+		PersistentPreRun: func(_ *cobra.Command, _ []string) { initConfig() },
 	}
 	root.PersistentFlags().StringVarP(&configPath, "config", "c", "",
 		"config file (default: ~/.config/rcm/config.yaml)")
@@ -59,6 +60,11 @@ func out(cmd *cobra.Command, format string, args ...any) {
 var configErr error
 
 func initConfig() {
+	// Reset cached state so a fresh Root() invocation (notably in tests) does not
+	// inherit a prior run's config or error.
+	loadedCfg = nil
+	configErr = nil
+
 	if configPath != "" {
 		viper.SetConfigFile(configPath)
 	} else {

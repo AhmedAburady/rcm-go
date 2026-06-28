@@ -18,7 +18,7 @@ var (
 	green  = lipgloss.Color("#00ff87")
 	cyan   = lipgloss.Color("#00d7ff")
 	yellow = lipgloss.Color("#ffff00")
-	red    = lipgloss.Color("#FF79C6")
+	pink   = lipgloss.Color("#FF79C6")
 	muted  = lipgloss.Color("#626262")
 	text   = lipgloss.Color("#cccccc")
 
@@ -26,7 +26,7 @@ var (
 	accentStyle  = lipgloss.NewStyle().Foreground(accent)
 	successStyle = lipgloss.NewStyle().Foreground(green)
 	warnStyle    = lipgloss.NewStyle().Foreground(yellow)
-	errorStyle   = lipgloss.NewStyle().Foreground(red)
+	errorStyle   = lipgloss.NewStyle().Foreground(pink)
 	mutedStyle   = lipgloss.NewStyle().Foreground(muted)
 
 	borderStyle     = lipgloss.NewStyle().Foreground(muted)
