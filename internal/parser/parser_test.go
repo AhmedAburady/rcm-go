@@ -115,6 +115,30 @@ b.com {
 	}
 }
 
+func TestParseEscapedQuoteInBlockDoesNotDropServices(t *testing.T) {
+	// An escaped quote inside a quoted directive value must not end the string
+	// early and let a following '}' be counted as real syntax.
+	caddyfile := `
+# a: 10.0.0.1:80
+a.com {
+    respond "literal brace \" } still quoted"
+    reverse_proxy localhost:5000
+}
+
+# b: 10.0.0.2:80
+b.com {
+    reverse_proxy localhost:5001
+}
+`
+	services, err := ParseContent(caddyfile)
+	if err != nil {
+		t.Fatalf("ParseContent failed: %v", err)
+	}
+	if len(services) != 2 {
+		t.Fatalf("Expected 2 services, got %d: %+v", len(services), services)
+	}
+}
+
 func TestParseSiteAddressWithPort(t *testing.T) {
 	caddyfile := `
 # c: 10.0.0.3:80

@@ -36,7 +36,7 @@ on the server.`,
 				out(c, "%s", ui.Warn("Local Caddyfile already exists at %s", localPath))
 				fmt.Fprint(c.OutOrStdout(), "Overwrite? [y/N]: ")
 
-				reader := bufio.NewReader(os.Stdin)
+				reader := bufio.NewReader(c.InOrStdin())
 				response, _ := reader.ReadString('\n')
 				response = strings.TrimSpace(strings.ToLower(response))
 				if response != "y" && response != "yes" {

@@ -126,25 +126,31 @@ func Parse(scanner *bufio.Scanner) ([]Service, error) {
 // netBraces returns the net brace depth change for a line ({ as +1, } as -1),
 // ignoring braces inside double-quoted strings and after a `#` comment so a
 // stray brace in a comment or string literal can't desync the block counter.
+// Backslash escapes inside a quoted string are honored, so an escaped quote
+// (`\"`) does not prematurely end the string.
 func netBraces(line string) int {
 	n := 0
 	inQuote := false
 	for i := 0; i < len(line); i++ {
-		switch line[i] {
+		c := line[i]
+		if inQuote {
+			switch c {
+			case '\\':
+				i++ // skip the escaped character (e.g. \" or \\)
+			case '"':
+				inQuote = false
+			}
+			continue
+		}
+		switch c {
 		case '"':
-			inQuote = !inQuote
+			inQuote = true
 		case '#':
-			if !inQuote {
-				return n
-			}
+			return n
 		case '{':
-			if !inQuote {
-				n++
-			}
+			n++
 		case '}':
-			if !inQuote {
-				n--
-			}
+			n--
 		}
 	}
 	return n

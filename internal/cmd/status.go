@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -9,6 +10,10 @@ import (
 	"github.com/AhmedAburady/rcm-go/internal/ssh"
 	"github.com/AhmedAburady/rcm-go/internal/ui"
 )
+
+// statusProbeTimeout bounds a single host's health probe so a hung SSH session
+// (after the dial timeout) can't make `status` appear stuck forever.
+const statusProbeTimeout = 20 * time.Second
 
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
@@ -30,8 +35,14 @@ rathole-client, and caddy (docker compose on the VPS).`,
 			var serverLines, clientLines []string
 			var wg sync.WaitGroup
 			wg.Add(2)
-			go func() { defer wg.Done(); serverLines = probeServer(cfg) }()
-			go func() { defer wg.Done(); clientLines = probeClient(cfg) }()
+			go func() {
+				defer wg.Done()
+				serverLines = runProbe(ui.Heading("Server (%s)", cfg.Server.Host), func() []string { return probeServer(cfg) })
+			}()
+			go func() {
+				defer wg.Done()
+				clientLines = runProbe(ui.Heading("Client (%s)", cfg.Client.Host), func() []string { return probeClient(cfg) })
+			}()
 			wg.Wait()
 
 			for _, l := range append(serverLines, clientLines...) {
@@ -42,32 +53,51 @@ rathole-client, and caddy (docker compose on the VPS).`,
 	}
 }
 
+// runProbe prepends heading to the probe's lines, or reports a timeout if the
+// probe does not return within statusProbeTimeout. A timed-out probe goroutine
+// is abandoned and reaped at process exit.
+func runProbe(heading string, probe func() []string) []string {
+	done := make(chan []string, 1)
+	go func() { done <- probe() }()
+	select {
+	case lines := <-done:
+		return append([]string{heading}, lines...)
+	case <-time.After(statusProbeTimeout):
+		return []string{heading, "  " + ui.Fail("timed out after %s", statusProbeTimeout)}
+	}
+}
+
 func probeServer(cfg *config.Config) []string {
-	lines := []string{ui.Heading("Server (%s)", cfg.Server.Host)}
 	client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
 	if err != nil {
-		return append(lines, "  "+ui.Fail("unable to connect: %v", err))
+		return []string{"  " + ui.Fail("unable to connect: %v", err)}
 	}
-	lines = append(lines, statusLine(serviceStatus(client, "rathole-server")))
+	lines := []string{unitStatusLine(client, "rathole-server")}
 	if cfg.Server.CaddyComposeDir != "" {
-		running, status, _ := client.GetDockerComposeStatus(cfg.Server.CaddyComposeDir)
-		lines = append(lines, statusLine("caddy (docker)", running, status))
+		running, status, err := client.GetDockerComposeStatus(cfg.Server.CaddyComposeDir)
+		if err != nil {
+			lines = append(lines, "  "+ui.Fail("caddy (docker): %v", err))
+		} else {
+			lines = append(lines, statusLine("caddy (docker)", running, status))
+		}
 	}
 	return lines
 }
 
 func probeClient(cfg *config.Config) []string {
-	lines := []string{ui.Heading("Client (%s)", cfg.Client.Host)}
 	client, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHAuth())
 	if err != nil {
-		return append(lines, "  "+ui.Fail("unable to connect: %v", err))
+		return []string{"  " + ui.Fail("unable to connect: %v", err)}
 	}
-	return append(lines, statusLine(serviceStatus(client, "rathole-client")))
+	return []string{unitStatusLine(client, "rathole-client")}
 }
 
-func serviceStatus(client *ssh.Client, name string) (string, bool, string) {
-	running, status, _ := client.GetServiceStatus(name)
-	return name, running, status
+func unitStatusLine(client *ssh.Client, name string) string {
+	running, status, err := client.GetServiceStatus(name)
+	if err != nil {
+		return "  " + ui.Fail("%s: %v", name, err)
+	}
+	return statusLine(name, running, status)
 }
 
 func statusLine(name string, running bool, status string) string {

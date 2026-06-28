@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -82,17 +83,26 @@ func runSync(c *cobra.Command, cfg *config.Config, dryRun bool) error {
 		return err
 	}
 
+	// Both configs are already uploaded; attempt every restart even if one
+	// fails, so a single host's failure doesn't leave the other end running an
+	// old process against the new config (a divergent, tunnel-down state).
+	var restartErrs []error
 	out(c, "%s", ui.Heading("Server (%s)", cfg.Server.Host))
 	if err := restartUnit(c, serverClient, "rathole-server"); err != nil {
-		return err
+		restartErrs = append(restartErrs, err)
 	}
 	if err := restartCaddy(c, serverClient, cfg.Server.CaddyComposeDir); err != nil {
-		return fmt.Errorf("restart caddy: %w", err)
+		restartErrs = append(restartErrs, fmt.Errorf("restart caddy: %w", err))
 	}
 
 	out(c, "%s", ui.Heading("Client (%s)", cfg.Client.Host))
 	if err := restartUnit(c, clientClient, "rathole-client"); err != nil {
-		return err
+		restartErrs = append(restartErrs, err)
+	}
+
+	if len(restartErrs) > 0 {
+		out(c, "%s", ui.Warn("partial restart — configs are uploaded but some services did not restart; both hosts may need attention"))
+		return errors.Join(restartErrs...)
 	}
 
 	out(c, "%s", ui.OK("Deployed %d services", len(services)))
