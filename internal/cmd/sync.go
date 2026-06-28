@@ -1,59 +1,145 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"sort"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/AhmedAburady/rcm-go/internal/config"
-	"github.com/AhmedAburady/rcm-go/internal/tui/views"
+	"github.com/AhmedAburady/rcm-go/internal/generator"
+	"github.com/AhmedAburady/rcm-go/internal/parser"
+	"github.com/AhmedAburady/rcm-go/internal/ssh"
+	"github.com/AhmedAburady/rcm-go/internal/ui"
 )
 
-var syncCmd = &cobra.Command{
-	Use:   "sync",
-	Short: "Sync configuration to remote servers",
-	Long: `Parse the local Caddyfile, generate rathole configs,
-and deploy to both VPS and home client.
+func newSyncCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "sync",
+		Short: "Sync configuration to remote servers",
+		Long: `Parse the local Caddyfile, generate rathole configs, and deploy to both
+the VPS and the home client.
 
-This command will:
-1. Parse the local Caddyfile to extract service definitions
-2. Generate server.toml and client.toml configs
-3. Upload server.toml to the VPS
-4. Upload client.toml to the home client
-5. Restart rathole-server on VPS
-6. Restart rathole-client on home machine`,
-	RunE: runSync,
-}
-
-var syncDryRun bool
-
-func init() {
-	rootCmd.AddCommand(syncCmd)
-	syncCmd.Flags().BoolVar(&syncDryRun, "dry-run", false, "Preview changes without deploying")
-}
-
-func runSync(cmd *cobra.Command, args []string) error {
-	if configErr != nil {
-		return configErr
+Steps: parse the Caddyfile, generate server.toml and client.toml, upload them
+(plus the Caddyfile to the VPS), then restart rathole on both machines and caddy
+on the VPS.`,
+		Args: cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error {
+			cfg, err := loadCfg()
+			if err != nil {
+				return err
+			}
+			return runSync(c, cfg, dryRun)
+		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without deploying")
+	return cmd
+}
 
-	cfg, err := config.Load()
+func runSync(c *cobra.Command, cfg *config.Config, dryRun bool) error {
+	out(c, "%s", ui.Step("Parsing %s …", cfg.Paths.Caddyfile))
+	services, err := parser.ParseFile(cfg.Paths.Caddyfile)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return fmt.Errorf("parse caddyfile: %w", err)
+	}
+	if len(services) == 0 {
+		return fmt.Errorf("no services found in %s", cfg.Paths.Caddyfile)
+	}
+	sort.Slice(services, func(i, j int) bool { return services[i].Name < services[j].Name })
+
+	out(c, "%s", ui.RenderServices(services))
+
+	if dryRun {
+		// Purely local preview: no SSH, so it is safe to run offline.
+		out(c, "%s", ui.Info("dry-run: nothing deployed"))
+		return nil
 	}
 
-	// Launch TUI with main app, starting at sync view
-	initialView := views.ViewSync
-	if syncDryRun {
-		initialView = views.ViewSyncDryRun
-	}
-	model := views.NewAppModelWithView(cfg, initialView)
-	p := tea.NewProgram(model, tea.WithAltScreen())
-
-	if _, err := p.Run(); err != nil {
-		return fmt.Errorf("TUI error: %w", err)
+	if err := config.ResolveRatholeSecrets(cfg); err != nil {
+		return fmt.Errorf("resolve secrets: %w", err)
 	}
 
+	out(c, "%s", ui.Step("Generating configs …"))
+	serverTOML, err := generator.GenerateServerTOML(cfg, services)
+	if err != nil {
+		return fmt.Errorf("generate server config: %w", err)
+	}
+	clientTOML, err := generator.GenerateClientTOML(cfg, services)
+	if err != nil {
+		return fmt.Errorf("generate client config: %w", err)
+	}
+
+	// Upload to both hosts before restarting anything, so a restart failure on
+	// one host never leaves the other host with stale (un-uploaded) config.
+	serverClient, err := uploadServer(c, cfg, serverTOML)
+	if err != nil {
+		return err
+	}
+	clientClient, err := uploadClient(c, cfg, clientTOML)
+	if err != nil {
+		return err
+	}
+
+	// Both configs are already uploaded; attempt every restart even if one
+	// fails, so a single host's failure doesn't leave the other end running an
+	// old process against the new config (a divergent, tunnel-down state).
+	var restartErrs []error
+	out(c, "%s", ui.Heading("Server (%s)", cfg.Server.Host))
+	if err := restartUnit(c, serverClient, "rathole-server"); err != nil {
+		restartErrs = append(restartErrs, err)
+	}
+	if err := restartCaddy(c, serverClient, cfg.Server.CaddyComposeDir); err != nil {
+		restartErrs = append(restartErrs, err)
+	}
+
+	out(c, "%s", ui.Heading("Client (%s)", cfg.Client.Host))
+	if err := restartUnit(c, clientClient, "rathole-client"); err != nil {
+		restartErrs = append(restartErrs, err)
+	}
+
+	if len(restartErrs) > 0 {
+		out(c, "%s", ui.Warn("partial restart — configs are uploaded but some services did not restart; both hosts may need attention"))
+		return errors.Join(restartErrs...)
+	}
+
+	out(c, "%s", ui.OK("Deployed %d services", len(services)))
 	return nil
+}
+
+func uploadServer(c *cobra.Command, cfg *config.Config, serverTOML string) (*ssh.Client, error) {
+	out(c, "%s", ui.Step("Uploading rathole config to %s …", cfg.Server.Host))
+	client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
+	if err != nil {
+		return nil, fmt.Errorf("connect to server: %w", err)
+	}
+	if err := client.UploadContent(serverTOML, cfg.Server.RatholeConfig); err != nil {
+		return nil, fmt.Errorf("upload rathole config: %w", err)
+	}
+
+	if cfg.Server.Caddyfile != "" {
+		caddyContent, err := os.ReadFile(cfg.Paths.Caddyfile)
+		if err != nil {
+			return nil, fmt.Errorf("read local caddyfile: %w", err)
+		}
+		out(c, "%s", ui.Step("Uploading Caddyfile …"))
+		if err := client.UploadContent(string(caddyContent), cfg.Server.Caddyfile); err != nil {
+			return nil, fmt.Errorf("upload caddyfile: %w", err)
+		}
+	}
+	return client, nil
+}
+
+func uploadClient(c *cobra.Command, cfg *config.Config, clientTOML string) (*ssh.Client, error) {
+	out(c, "%s", ui.Step("Uploading rathole config to %s …", cfg.Client.Host))
+	client, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHAuth())
+	if err != nil {
+		return nil, fmt.Errorf("connect to client: %w", err)
+	}
+	if err := client.UploadContent(clientTOML, cfg.Client.RatholeConfig); err != nil {
+		return nil, fmt.Errorf("upload rathole config: %w", err)
+	}
+	return client, nil
 }

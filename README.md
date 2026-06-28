@@ -1,8 +1,6 @@
 # RCM - Rathole Caddy Manager
 
-A single-binary CLI tool with interactive TUI for managing [Rathole](https://github.com/rapiz1/rathole) tunnels with [Caddy](https://caddyserver.com/) reverse proxy. Uses your **Caddyfile as the single source of truth** - just edit one file and RCM handles the rest.
-
-![RCM TUI](screenshots/tui.png?v=1)
+A single-binary CLI tool for managing [Rathole](https://github.com/rapiz1/rathole) tunnels with [Caddy](https://caddyserver.com/) reverse proxy. Uses your **Caddyfile as the single source of truth** - just edit one file and RCM handles the rest.
 
 > **Prerequisites:** This tool requires a working Rathole + Caddy setup. See **[rathole-tunnel](https://github.com/AhmedAburady/rathole-tunnel)** for the complete setup guide.
 
@@ -73,8 +71,7 @@ RCM will:
 ## Features
 
 - **Single Binary** - No dependencies, just download and run
-- **Interactive TUI** - Beautiful terminal interface with keyboard navigation
-- **Plain Mode** - Use `--plain` flag for scripting and CI/CD
+- **Flags-driven CLI** - Non-interactive output, scriptable for CI/CD
 - **Service Comparison** - See which services exist locally vs remotely
 - **Auto-Pull** - Automatically pulls Caddyfile when setting up a new machine
 - **Safe Sync** - Warns before removing services
@@ -109,17 +106,17 @@ sudo mv rcm /usr/local/bin/
 If you have Go installed:
 
 ```bash
-go install github.com/AhmedAburady/rcm-go/cmd/rcm@latest
+go install github.com/AhmedAburady/rcm-go@latest
 ```
 
 ### Build from Source
 
-Requires Go 1.21+:
+Requires Go 1.26+:
 
 ```bash
 git clone https://github.com/AhmedAburady/rcm-go.git
 cd rcm-go
-go build -o rcm ./cmd/rcm
+go build -o rcm .
 sudo mv rcm /usr/local/bin/
 ```
 
@@ -229,47 +226,29 @@ Connectivity values (hosts, users, key paths) resolve at startup; the `rathole` 
 
 ## Usage
 
-### Interactive TUI (Default)
-
-Simply run any command to launch the interactive interface:
-
-```bash
-rcm              # Launch main menu
-rcm list         # Service list view
-rcm sync         # Sync view
-rcm status       # Status view
-rcm pull         # Pull view
-rcm restart      # Restart view
-```
-
-**TUI Navigation:**
-- `↑/↓` or `j/k` - Navigate
-- `Enter` - Select
-- `Esc` - Go back
-- `q` - Quit
-
-### Plain Text Mode
-
-Use `--plain` or `-p` for non-interactive output:
+RCM is a flags-driven CLI: each command prints directly to the terminal. Run
+`rcm` with no arguments (or `rcm --help`) to see the command list.
 
 ```bash
-rcm list --plain         # Plain text service list
-rcm sync --plain         # Plain text sync output
-rcm status --plain       # Plain text status
-rcm pull --plain         # Plain text pull
-rcm restart --plain      # Plain text restart
+rcm list         # List services parsed from the Caddyfile
+rcm sync         # Generate configs and deploy to both machines
+rcm sync --dry-run  # Preview what would deploy; change nothing
+rcm status       # Check service health on both machines
+rcm pull         # Pull the Caddyfile from the VPS to local
+rcm restart      # Restart rathole and caddy services
 ```
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `rcm` | Launch interactive TUI |
-| `rcm list` | List services (local vs remote comparison) |
+| `rcm` | Show help and the command list |
+| `rcm list` | List services parsed from the Caddyfile |
 | `rcm pull` | Pull Caddyfile from VPS to local |
-| `rcm sync` | Deploy configs to both machines |
+| `rcm sync` | Deploy configs to both machines (`--dry-run` to preview) |
 | `rcm status` | Check service health on both machines |
 | `rcm restart` | Restart rathole and caddy services |
+| `rcm version` | Print version, commit, and build date |
 
 ### Restart Options
 
@@ -340,13 +319,13 @@ Only one rathole tunnel is created - RCM deduplicates by service name.
 ## Building
 
 ```bash
-# Build for current platform
-go build -o rcm ./cmd/rcm
+# Build for current platform (or: just build)
+go build -o rcm .
 
 # Cross-compile
-GOOS=linux GOARCH=amd64 go build -o rcm-linux-amd64 ./cmd/rcm
-GOOS=darwin GOARCH=arm64 go build -o rcm-darwin-arm64 ./cmd/rcm
-GOOS=darwin GOARCH=amd64 go build -o rcm-darwin-amd64 ./cmd/rcm
+GOOS=linux GOARCH=amd64 go build -o rcm-linux-amd64 .
+GOOS=darwin GOARCH=arm64 go build -o rcm-darwin-arm64 .
+GOOS=darwin GOARCH=amd64 go build -o rcm-darwin-amd64 .
 ```
 
 ## License
