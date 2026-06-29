@@ -72,7 +72,7 @@ RCM will:
 
 - **Single Binary** - No dependencies, just download and run
 - **Flags-driven CLI** - Non-interactive output, scriptable for CI/CD
-- **Service Comparison** - See which services exist locally vs remotely
+- **Sync Status** - `rcm list` compares your local Caddyfile against the VPS and flags per-service drift at a glance
 - **Auto-Pull** - Automatically pulls Caddyfile when setting up a new machine
 - **Safe Sync** - Warns before removing services
 - **Flexible SSH Auth** - Use a key file or any SSH agent, including [1Password](https://developer.1password.com/docs/ssh/) (private key never touches disk)
@@ -230,12 +230,13 @@ RCM is a flags-driven CLI: each command prints directly to the terminal. Run
 `rcm` with no arguments (or `rcm --help`) to see the command list.
 
 ```bash
-rcm list         # List services parsed from the Caddyfile
-rcm sync         # Generate configs and deploy to both machines
+rcm list            # List services with local↔VPS sync status
+rcm list --no-check # List instantly, offline (skip the SSH check)
+rcm sync            # Generate configs and deploy to both machines
 rcm sync --dry-run  # Preview what would deploy; change nothing
-rcm status       # Check service health on both machines
-rcm pull         # Pull the Caddyfile from the VPS to local
-rcm restart      # Restart rathole and caddy services
+rcm status          # Check service health on both machines
+rcm pull            # Pull the Caddyfile from the VPS to local
+rcm restart         # Restart rathole and caddy services
 ```
 
 ### Commands
@@ -243,7 +244,7 @@ rcm restart      # Restart rathole and caddy services
 | Command | Description |
 |---------|-------------|
 | `rcm` | Show help and the command list |
-| `rcm list` | List services parsed from the Caddyfile |
+| `rcm list` | List services with local↔VPS sync status (`--no-check` to skip the SSH probe) |
 | `rcm pull` | Pull Caddyfile from VPS to local |
 | `rcm sync` | Deploy configs to both machines (`--dry-run` to preview) |
 | `rcm status` | Check service health on both machines |
@@ -258,17 +259,28 @@ rcm restart --server     # VPS only (rathole-server, caddy)
 rcm restart --client     # Client only (rathole-client)
 ```
 
-## Service Comparison
+## Sync Status
 
-`rcm list` shows which services exist locally vs remotely:
+By default `rcm list` connects to the VPS, downloads its Caddyfile, and compares it against your local Caddyfile — the single source of truth — service by service:
 
 ```
-┌─────────────────┬────────────────────┬──────────┬─────────────────┬───────┬────────┐
-│ Service         │ Local Address      │ VPS Port │ Domains         │ Local │ Remote │
-├─────────────────┼────────────────────┼──────────┼─────────────────┼───────┼────────┤
-│ homeassistant   │ 192.168.1.10:8123  │ 5001     │ ha.example.com  │ ✓     │ ✓      │
-│ newservice      │ 192.168.1.50:3000  │ 5002     │ new.example.com │ ✓     │ ✗      │
-└─────────────────┴────────────────────┴──────────┴─────────────────┴───────┴────────┘
+╭────┬───────────────┬───────────────────┬──────────┬─────────────────┬───────┬────────╮
+│ #  │ SERVICE       │ LOCAL ADDRESS     │ VPS PORT │ DOMAINS         │ LOCAL │ REMOTE │
+├────┼───────────────┼───────────────────┼──────────┼─────────────────┼───────┼────────┤
+│ 1  │ homeassistant │ 192.168.1.10:8123 │ 5001     │ ha.example.com  │ ✓     │ ✓      │
+│ 2  │ newservice    │ 192.168.1.50:3000 │ 5002     │ new.example.com │ ✓     │ ✗      │
+╰────┴───────────────┴───────────────────┴──────────┴─────────────────┴───────┴────────╯
+```
+
+- **LOCAL** — `✓` the service is defined in your local Caddyfile, `✗` it exists only on the VPS
+- **REMOTE** — `✓` present and identical on the VPS, `✗` missing/changed/orphaned (run `rcm sync`), `?` the VPS could not be reached
+
+Above, `newservice` is defined locally but not yet deployed. The comparison uses `server.caddyfile` from your config; if it's unset or the VPS is unreachable, the REMOTE column shows `?` and the reason is printed below the table.
+
+Skip the SSH probe for an instant, offline listing:
+
+```bash
+rcm list --no-check
 ```
 
 ## Workflow

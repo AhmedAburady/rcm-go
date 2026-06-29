@@ -5,10 +5,12 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
+	"github.com/charmbracelet/x/term"
 
 	"github.com/AhmedAburady/rcm-go/internal/parser"
 )
@@ -64,37 +66,125 @@ func Info(format string, a ...any) string { return mutedStyle.Render(fmt.Sprintf
 func Check() string { return successStyle.Render("✓") }
 func Cross() string { return errorStyle.Render("✗") }
 
-// RenderServices renders parsed services as a bordered, color-coded table:
-// service, local address, VPS port, and domains.
-func RenderServices(services []parser.Service) string {
-	rows := make([][]string, len(services))
-	for i, s := range services {
-		domains := strings.Join(s.Domains, ", ")
-		if domains == "" {
-			domains = "—"
-		}
-		rows[i] = []string{s.Name, s.LocalAddr, fmt.Sprintf("%d", s.VPSPort), domains}
+func termWidth() int {
+	if !term.IsTerminal(os.Stdout.Fd()) {
+		return 0
 	}
+	w, _, err := term.GetSize(os.Stdout.Fd())
+	if err != nil || w <= 0 {
+		return 0
+	}
+	return w
+}
 
+func renderTable(headers []string, rows [][]string, style table.StyleFunc) string {
 	t := table.New().
 		Border(lipgloss.RoundedBorder()).
 		BorderStyle(borderStyle).
-		Headers("SERVICE", "LOCAL ADDRESS", "VPS PORT", "DOMAINS").
+		Headers(headers...).
 		Rows(rows...).
-		StyleFunc(func(r, c int) lipgloss.Style {
-			if r == table.HeaderRow {
-				return headerCellStyle
-			}
-			switch c {
-			case 0:
-				return cellStyle.Foreground(cyan)
-			case 1:
-				return cellStyle.Foreground(green)
-			case 2:
-				return cellStyle.Foreground(yellow)
-			default:
-				return cellStyle.Foreground(text)
-			}
-		})
-	return t.String()
+		StyleFunc(style)
+
+	s := t.String()
+	if w := termWidth(); w > 0 && lipgloss.Width(s) > w {
+		return t.Width(w).Wrap(true).String()
+	}
+	return s
+}
+
+func serviceCellStyle(r, c int) lipgloss.Style {
+	if r == table.HeaderRow {
+		return headerCellStyle
+	}
+	switch c {
+	case 0:
+		return cellStyle.Foreground(muted)
+	case 1:
+		return cellStyle.Foreground(cyan)
+	case 2:
+		return cellStyle.Foreground(green)
+	case 3:
+		return cellStyle.Foreground(yellow)
+	default:
+		return cellStyle.Foreground(text)
+	}
+}
+
+func serviceRow(n int, s parser.Service) []string {
+	domains := strings.Join(s.Domains, ", ")
+	if domains == "" {
+		domains = "—"
+	}
+	return []string{fmt.Sprintf("%d", n), s.Name, s.LocalAddr, fmt.Sprintf("%d", s.VPSPort), domains}
+}
+
+func RenderServices(services []parser.Service) string {
+	rows := make([][]string, len(services))
+	for i, s := range services {
+		rows[i] = serviceRow(i+1, s)
+	}
+	return renderTable(
+		[]string{"#", "SERVICE", "LOCAL ADDRESS", "VPS PORT", "DOMAINS"},
+		rows, serviceCellStyle,
+	)
+}
+
+type Sync int
+
+const (
+	SyncUnknown Sync = iota
+	SyncOK
+	SyncDrift
+)
+
+func (s Sync) mark() string {
+	switch s {
+	case SyncOK:
+		return "✓"
+	case SyncDrift:
+		return "✗"
+	default:
+		return "?"
+	}
+}
+
+func (s Sync) style() lipgloss.Style {
+	st := cellStyle.Align(lipgloss.Center)
+	switch s {
+	case SyncOK:
+		return st.Foreground(green)
+	case SyncDrift:
+		return st.Foreground(pink)
+	default:
+		return st.Foreground(muted)
+	}
+}
+
+type ServiceRow struct {
+	Service parser.Service
+	Local   Sync
+	Remote  Sync
+}
+
+func RenderServicesSync(rows []ServiceRow) string {
+	tableRows := make([][]string, len(rows))
+	for i, r := range rows {
+		tableRows[i] = append(serviceRow(i+1, r.Service), r.Local.mark(), r.Remote.mark())
+	}
+	style := func(r, c int) lipgloss.Style {
+		switch {
+		case r == table.HeaderRow:
+			return headerCellStyle
+		case c == 5:
+			return rows[r].Local.style()
+		case c == 6:
+			return rows[r].Remote.style()
+		default:
+			return serviceCellStyle(r, c)
+		}
+	}
+	return renderTable(
+		[]string{"#", "SERVICE", "LOCAL ADDRESS", "VPS PORT", "DOMAINS", "LOCAL", "REMOTE"},
+		tableRows, style,
+	)
 }
