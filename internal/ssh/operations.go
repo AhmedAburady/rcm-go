@@ -14,7 +14,7 @@ func (c *Client) UploadContent(content, remotePath string) error {
 
 	// Ensure parent directory exists
 	dir := filepath.Dir(remotePath)
-	mkdirCmd := fmt.Sprintf("mkdir -p %q", dir)
+	mkdirCmd := fmt.Sprintf("mkdir -p %s", shellQuote(dir))
 	if c.user != "root" {
 		mkdirCmd = "sudo " + mkdirCmd
 	}
@@ -22,9 +22,9 @@ func (c *Client) UploadContent(content, remotePath string) error {
 
 	// Use base64 encoding to safely transfer content with special characters
 	encoded := base64.StdEncoding.EncodeToString([]byte(content))
-	writeCmd := fmt.Sprintf("echo %q | base64 -d > %q", encoded, remotePath)
+	writeCmd := fmt.Sprintf("echo %s | base64 -d > %s", shellQuote(encoded), shellQuote(remotePath))
 	if c.user != "root" {
-		writeCmd = fmt.Sprintf("echo %q | base64 -d | sudo tee %q > /dev/null", encoded, remotePath)
+		writeCmd = fmt.Sprintf("echo %s | base64 -d | sudo tee %s > /dev/null", shellQuote(encoded), shellQuote(remotePath))
 	}
 
 	_, err := c.Run(writeCmd)
@@ -39,11 +39,37 @@ func (c *Client) UploadContent(content, remotePath string) error {
 func (c *Client) DownloadContent(remotePath string) (string, error) {
 	remotePath = c.expandRemotePath(remotePath)
 
-	output, err := c.Run(fmt.Sprintf("cat %q", remotePath))
+	output, err := c.Run(fmt.Sprintf("cat %s", shellQuote(remotePath)))
 	if err != nil {
 		return "", fmt.Errorf("read %s: %w", remotePath, err)
 	}
 	return output, nil
+}
+
+// shellQuote single-quotes s for safe interpolation into a remote shell command,
+// neutralizing $(), backticks, and other expansion in a configured path.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// FileSHA256 returns the hex SHA-256 of a remote file. ok is false when the file
+// does not exist or cannot be read (treat as "needs upload"). Uses sudo when not
+// root so root-owned config files are still readable.
+func (c *Client) FileSHA256(remotePath string) (sum string, ok bool) {
+	remotePath = c.expandRemotePath(remotePath)
+	cmd := fmt.Sprintf("sha256sum %s 2>/dev/null", shellQuote(remotePath))
+	if c.user != "root" {
+		cmd = "sudo " + cmd
+	}
+	output, err := c.Run(cmd)
+	if err != nil {
+		return "", false
+	}
+	fields := strings.Fields(output)
+	if len(fields) == 0 {
+		return "", false
+	}
+	return fields[0], true
 }
 
 // RestartService restarts a systemd service (uses sudo if not root)

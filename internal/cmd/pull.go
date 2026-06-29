@@ -32,18 +32,6 @@ on the server.`,
 			}
 
 			localPath := cfg.Paths.Caddyfile
-			if _, err := os.Stat(localPath); err == nil && !force {
-				out(c, "%s", ui.Warn("Local Caddyfile already exists at %s", localPath))
-				fmt.Fprint(c.OutOrStdout(), "Overwrite? [y/N]: ")
-
-				reader := bufio.NewReader(c.InOrStdin())
-				response, _ := reader.ReadString('\n')
-				response = strings.TrimSpace(strings.ToLower(response))
-				if response != "y" && response != "yes" {
-					out(c, "%s", ui.Info("Aborted."))
-					return nil
-				}
-			}
 
 			out(c, "%s", ui.Step("Downloading Caddyfile from %s …", cfg.Server.Host))
 			client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
@@ -54,6 +42,32 @@ on the server.`,
 			content, err := client.DownloadContent(cfg.Server.Caddyfile)
 			if err != nil {
 				return fmt.Errorf("download caddyfile: %w", err)
+			}
+
+			// Compare against the local file: skip the write (and the overwrite
+			// prompt) when it already matches. Prompt before overwriting any
+			// existing file — including one we can't read, which must not be
+			// silently replaced.
+			existing, readErr := os.ReadFile(localPath)
+			if readErr == nil && string(existing) == content {
+				out(c, "%s", ui.OK("Already up to date — local Caddyfile matches remote"))
+				return nil
+			}
+			if exists := readErr == nil || !os.IsNotExist(readErr); exists && !force {
+				if readErr == nil {
+					out(c, "%s", ui.Warn("Local Caddyfile differs from remote at %s", localPath))
+				} else {
+					out(c, "%s", ui.Warn("Local Caddyfile at %s exists but couldn't be read: %v", localPath, readErr))
+				}
+				fmt.Fprint(c.OutOrStdout(), "Overwrite? [y/N]: ")
+
+				reader := bufio.NewReader(c.InOrStdin())
+				response, _ := reader.ReadString('\n')
+				response = strings.TrimSpace(strings.ToLower(response))
+				if response != "y" && response != "yes" {
+					out(c, "%s", ui.Info("Aborted."))
+					return nil
+				}
 			}
 
 			dir := filepath.Dir(localPath)
