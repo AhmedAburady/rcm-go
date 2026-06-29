@@ -32,18 +32,6 @@ on the server.`,
 			}
 
 			localPath := cfg.Paths.Caddyfile
-			if _, err := os.Stat(localPath); err == nil && !force {
-				out(c, "%s", ui.Warn("Local Caddyfile already exists at %s", localPath))
-				fmt.Fprint(c.OutOrStdout(), "Overwrite? [y/N]: ")
-
-				reader := bufio.NewReader(c.InOrStdin())
-				response, _ := reader.ReadString('\n')
-				response = strings.TrimSpace(strings.ToLower(response))
-				if response != "y" && response != "yes" {
-					out(c, "%s", ui.Info("Aborted."))
-					return nil
-				}
-			}
 
 			out(c, "%s", ui.Step("Downloading Caddyfile from %s …", cfg.Server.Host))
 			client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
@@ -54,6 +42,27 @@ on the server.`,
 			content, err := client.DownloadContent(cfg.Server.Caddyfile)
 			if err != nil {
 				return fmt.Errorf("download caddyfile: %w", err)
+			}
+
+			// Compare against the local file: skip the write (and the overwrite
+			// prompt) when it already matches, and only prompt when it differs.
+			if existing, err := os.ReadFile(localPath); err == nil {
+				if string(existing) == content {
+					out(c, "%s", ui.OK("Already up to date — local Caddyfile matches remote"))
+					return nil
+				}
+				if !force {
+					out(c, "%s", ui.Warn("Local Caddyfile differs from remote at %s", localPath))
+					fmt.Fprint(c.OutOrStdout(), "Overwrite? [y/N]: ")
+
+					reader := bufio.NewReader(c.InOrStdin())
+					response, _ := reader.ReadString('\n')
+					response = strings.TrimSpace(strings.ToLower(response))
+					if response != "y" && response != "yes" {
+						out(c, "%s", ui.Info("Aborted."))
+						return nil
+					}
+				}
 			}
 
 			dir := filepath.Dir(localPath)

@@ -46,6 +46,26 @@ func (c *Client) DownloadContent(remotePath string) (string, error) {
 	return output, nil
 }
 
+// FileSHA256 returns the hex SHA-256 of a remote file. ok is false when the file
+// does not exist or cannot be read (treat as "needs upload"). Uses sudo when not
+// root so root-owned config files are still readable.
+func (c *Client) FileSHA256(remotePath string) (sum string, ok bool) {
+	remotePath = c.expandRemotePath(remotePath)
+	cmd := fmt.Sprintf("sha256sum %q 2>/dev/null", remotePath)
+	if c.user != "root" {
+		cmd = "sudo " + cmd
+	}
+	output, err := c.Run(cmd)
+	if err != nil {
+		return "", false
+	}
+	fields := strings.Fields(output)
+	if len(fields) == 0 {
+		return "", false
+	}
+	return fields[0], true
+}
+
 // RestartService restarts a systemd service (uses sudo if not root)
 func (c *Client) RestartService(name string) error {
 	cmd := fmt.Sprintf("systemctl restart %s", name)

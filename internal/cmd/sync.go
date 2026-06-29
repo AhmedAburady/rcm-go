@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -71,33 +73,71 @@ func runSync(c *cobra.Command, cfg *config.Config, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("generate client config: %w", err)
 	}
+	var caddyContent string
+	if cfg.Server.Caddyfile != "" {
+		b, err := os.ReadFile(cfg.Paths.Caddyfile)
+		if err != nil {
+			return fmt.Errorf("read local caddyfile: %w", err)
+		}
+		caddyContent = string(b)
+	}
 
-	// Upload to both hosts before restarting anything, so a restart failure on
-	// one host never leaves the other host with stale (un-uploaded) config.
-	serverClient, err := uploadServer(c, cfg, serverTOML)
+	serverClient, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
+	if err != nil {
+		return fmt.Errorf("connect to server: %w", err)
+	}
+	clientClient, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHAuth())
+	if err != nil {
+		return fmt.Errorf("connect to client: %w", err)
+	}
+
+	// Compare the generated config against what's already on each host and
+	// upload only what changed, so an unchanged sync is a no-op (no restarts).
+	// Upload everything before restarting anything, so a restart failure on one
+	// host never leaves the other host with stale (un-uploaded) config.
+	serverChanged, err := uploadIfChanged(c, serverClient, serverTOML, cfg.Server.RatholeConfig, "rathole config (server)")
 	if err != nil {
 		return err
 	}
-	clientClient, err := uploadClient(c, cfg, clientTOML)
+	caddyChanged := false
+	if cfg.Server.Caddyfile != "" {
+		caddyChanged, err = uploadIfChanged(c, serverClient, caddyContent, cfg.Server.Caddyfile, "Caddyfile")
+		if err != nil {
+			return err
+		}
+	}
+	clientChanged, err := uploadIfChanged(c, clientClient, clientTOML, cfg.Client.RatholeConfig, "rathole config (client)")
 	if err != nil {
 		return err
 	}
 
-	// Both configs are already uploaded; attempt every restart even if one
-	// fails, so a single host's failure doesn't leave the other end running an
-	// old process against the new config (a divergent, tunnel-down state).
+	if !serverChanged && !caddyChanged && !clientChanged {
+		out(c, "%s", ui.OK("Already up to date — nothing to deploy"))
+		return nil
+	}
+
+	// Restart only the services whose config actually changed. Attempt every
+	// needed restart even if one fails, so a single host's failure doesn't leave
+	// the other end running an old process against new config.
 	var restartErrs []error
-	out(c, "%s", ui.Heading("Server (%s)", cfg.Server.Host))
-	if err := restartUnit(c, serverClient, "rathole-server"); err != nil {
-		restartErrs = append(restartErrs, err)
+	if serverChanged || caddyChanged {
+		out(c, "%s", ui.Heading("Server (%s)", cfg.Server.Host))
+		if serverChanged {
+			if err := restartUnit(c, serverClient, "rathole-server"); err != nil {
+				restartErrs = append(restartErrs, err)
+			}
+		}
+		if caddyChanged {
+			if err := restartCaddy(c, serverClient, cfg.Server.CaddyComposeDir); err != nil {
+				restartErrs = append(restartErrs, err)
+			}
+		}
 	}
-	if err := restartCaddy(c, serverClient, cfg.Server.CaddyComposeDir); err != nil {
-		restartErrs = append(restartErrs, err)
-	}
-
-	out(c, "%s", ui.Heading("Client (%s)", cfg.Client.Host))
-	if err := restartUnit(c, clientClient, "rathole-client"); err != nil {
-		restartErrs = append(restartErrs, err)
+	if clientChanged {
+		out(c, "%s", ui.Heading("Client (%s)", cfg.Client.Host))
+		if err := restartUnit(c, clientClient, "rathole-client"); err != nil {
+			restartErrs = append(restartErrs, err)
+		}
 	}
 
 	if len(restartErrs) > 0 {
@@ -105,41 +145,25 @@ func runSync(c *cobra.Command, cfg *config.Config, dryRun bool) error {
 		return errors.Join(restartErrs...)
 	}
 
-	out(c, "%s", ui.OK("Deployed %d services", len(services)))
+	out(c, "%s", ui.OK("Synced %d services", len(services)))
 	return nil
 }
 
-func uploadServer(c *cobra.Command, cfg *config.Config, serverTOML string) (*ssh.Client, error) {
-	out(c, "%s", ui.Step("Uploading rathole config to %s …", cfg.Server.Host))
-	client, err := ssh.GetClient(cfg.Server.Host, cfg.Server.User, cfg.Server.SSHAuth())
-	if err != nil {
-		return nil, fmt.Errorf("connect to server: %w", err)
+// uploadIfChanged uploads content to remotePath only when it differs from what's
+// already there (compared by SHA-256), reporting whether it changed.
+func uploadIfChanged(c *cobra.Command, client *ssh.Client, content, remotePath, label string) (bool, error) {
+	if remote, ok := client.FileSHA256(remotePath); ok && remote == contentSHA256(content) {
+		out(c, "%s", ui.Info("%s unchanged", label))
+		return false, nil
 	}
-	if err := client.UploadContent(serverTOML, cfg.Server.RatholeConfig); err != nil {
-		return nil, fmt.Errorf("upload rathole config: %w", err)
+	out(c, "%s", ui.Step("Uploading %s …", label))
+	if err := client.UploadContent(content, remotePath); err != nil {
+		return false, fmt.Errorf("upload %s: %w", label, err)
 	}
-
-	if cfg.Server.Caddyfile != "" {
-		caddyContent, err := os.ReadFile(cfg.Paths.Caddyfile)
-		if err != nil {
-			return nil, fmt.Errorf("read local caddyfile: %w", err)
-		}
-		out(c, "%s", ui.Step("Uploading Caddyfile …"))
-		if err := client.UploadContent(string(caddyContent), cfg.Server.Caddyfile); err != nil {
-			return nil, fmt.Errorf("upload caddyfile: %w", err)
-		}
-	}
-	return client, nil
+	return true, nil
 }
 
-func uploadClient(c *cobra.Command, cfg *config.Config, clientTOML string) (*ssh.Client, error) {
-	out(c, "%s", ui.Step("Uploading rathole config to %s …", cfg.Client.Host))
-	client, err := ssh.GetClient(cfg.Client.Host, cfg.Client.User, cfg.Client.SSHAuth())
-	if err != nil {
-		return nil, fmt.Errorf("connect to client: %w", err)
-	}
-	if err := client.UploadContent(clientTOML, cfg.Client.RatholeConfig); err != nil {
-		return nil, fmt.Errorf("upload rathole config: %w", err)
-	}
-	return client, nil
+func contentSHA256(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
 }
