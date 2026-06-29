@@ -40,12 +40,12 @@ internal/
 ├── parser/              # Caddyfile parser - extracts services from comment annotations
 ├── generator/           # Generates server.toml and client.toml using embedded templates
 ├── ssh/                 # SSH client, connection pool, and remote operations
-└── ui/                  # Terminal presentation: lipgloss styles, status lines, services table
+└── ui/                  # Terminal presentation: lipgloss styles, status lines, width-aware tables, spinner
 ```
 
 ## Key Patterns
 
-**CLI structure**: `main.go` runs `cmd.Root()` through Charm `fang` (styled help, `--version`, error rendering on top of Cobra). Each subcommand is a `newXxxCmd()` factory registered in `internal/cmd/root.go:Root()`. Commands load config via the cached `loadCfg()` helper and print through `out(c, …)` → `cmd.OutOrStdout()`. Tables and status lines come from the `ui` package (`RenderServices`, `Step`/`OK`/`Warn`/`Info`/`Fail`).
+**CLI structure**: `main.go` runs `cmd.Root()` through Charm `fang` (styled help, `--version`, error rendering on top of Cobra). Each subcommand is a `newXxxCmd()` factory registered in `internal/cmd/root.go:Root()`. Commands load config via the cached `loadCfg()` helper and print through `out(c, …)` → `cmd.OutOrStdout()`. Tables and status lines come from the `ui` package (`RenderServices`, `RenderServicesSync`, `WithSpinner`, `Step`/`OK`/`Warn`/`Info`/`Fail`). `rcm list` defaults to a per-service local↔VPS Caddyfile sync check (`--no-check` skips it); `internal/cmd/drift.go` runs the probe.
 
 **Caddyfile Parsing**: Services are defined via comments above domain blocks:
 ```caddyfile
