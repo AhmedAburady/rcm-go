@@ -15,15 +15,15 @@ default:
 
 # Build the binary with version info stamped in
 build:
-    go build -ldflags "{{ldflags}}" -o {{binary}} .
+    go build -ldflags "{{ldflags}}" -o {{binary}} ./cmd/rcm
 
 # Quick development build (no ldflags, faster)
 dev:
-    go build -o {{binary}} .
+    go build -o {{binary}} ./cmd/rcm
 
 # Install to GOPATH/bin with version info
 install:
-    go install -ldflags "{{ldflags}}" .
+    go install -ldflags "{{ldflags}}" ./cmd/rcm
 
 # Run tests
 test:
@@ -65,4 +65,4 @@ build-all: (cross "linux" "amd64") (cross "linux" "arm64") (cross "darwin" "amd6
 
 # Cross-compile for one GOOS/GOARCH, e.g. `just cross linux arm64`
 cross goos goarch:
-    GOOS={{goos}} GOARCH={{goarch}} go build -ldflags "{{ldflags}}" -o {{binary}}-{{goos}}-{{goarch}} .
+    GOOS={{goos}} GOARCH={{goarch}} go build -ldflags "{{ldflags}}" -o {{binary}}-{{goos}}-{{goarch}} ./cmd/rcm

@@ -106,7 +106,7 @@ sudo mv rcm /usr/local/bin/
 If you have Go installed:
 
 ```bash
-go install github.com/AhmedAburady/rcm-go@latest
+go install github.com/AhmedAburady/rcm-go/cmd/rcm@latest
 ```
 
 ### Build from Source
@@ -116,7 +116,7 @@ Requires Go 1.26+:
 ```bash
 git clone https://github.com/AhmedAburady/rcm-go.git
 cd rcm-go
-go build -o rcm .
+go build -o rcm ./cmd/rcm
 sudo mv rcm /usr/local/bin/
 ```
 
@@ -320,12 +320,12 @@ Only one rathole tunnel is created - RCM deduplicates by service name.
 
 ```bash
 # Build for current platform (or: just build)
-go build -o rcm .
+go build -o rcm ./cmd/rcm
 
 # Cross-compile
-GOOS=linux GOARCH=amd64 go build -o rcm-linux-amd64 .
-GOOS=darwin GOARCH=arm64 go build -o rcm-darwin-arm64 .
-GOOS=darwin GOARCH=amd64 go build -o rcm-darwin-amd64 .
+GOOS=linux GOARCH=amd64 go build -o rcm-linux-amd64 ./cmd/rcm
+GOOS=darwin GOARCH=arm64 go build -o rcm-darwin-arm64 ./cmd/rcm
+GOOS=darwin GOARCH=amd64 go build -o rcm-darwin-amd64 ./cmd/rcm
 ```
 
 ## License

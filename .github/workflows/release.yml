@@ -30,16 +30,16 @@ jobs:
           LDFLAGS="-s -w -X github.com/AhmedAburady/rcm-go/internal/cmd.Version=$VERSION -X github.com/AhmedAburady/rcm-go/internal/cmd.Commit=$COMMIT -X github.com/AhmedAburady/rcm-go/internal/cmd.BuildDate=$BUILD_DATE"
 
           # Linux
-          GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o rcm-linux-amd64 .
-          GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o rcm-linux-arm64 .
+          GOOS=linux GOARCH=amd64 go build -ldflags "$LDFLAGS" -o rcm-linux-amd64 ./cmd/rcm
+          GOOS=linux GOARCH=arm64 go build -ldflags "$LDFLAGS" -o rcm-linux-arm64 ./cmd/rcm
 
           # macOS
-          GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o rcm-darwin-amd64 .
-          GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o rcm-darwin-arm64 .
+          GOOS=darwin GOARCH=amd64 go build -ldflags "$LDFLAGS" -o rcm-darwin-amd64 ./cmd/rcm
+          GOOS=darwin GOARCH=arm64 go build -ldflags "$LDFLAGS" -o rcm-darwin-arm64 ./cmd/rcm
 
           # Windows
-          GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o rcm-windows-amd64.exe .
-          GOOS=windows GOARCH=arm64 go build -ldflags "$LDFLAGS" -o rcm-windows-arm64.exe .
+          GOOS=windows GOARCH=amd64 go build -ldflags "$LDFLAGS" -o rcm-windows-amd64.exe ./cmd/rcm
+          GOOS=windows GOARCH=arm64 go build -ldflags "$LDFLAGS" -o rcm-windows-arm64.exe ./cmd/rcm
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

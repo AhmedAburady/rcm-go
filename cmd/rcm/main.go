@@ -41,10 +41,13 @@ func main() {
 // so cleanup runs on every path — os.Exit does not honor deferred functions.
 func run() int {
 	defer ssh.CloseAll()
+	// Resolve once so both fang's --version flag and the `version` subcommand
+	// report the same value (the tag for go-install/release builds via BuildInfo).
+	cmd.Version = resolveVersion()
 	if err := fang.Execute(
 		context.Background(),
 		cmd.Root(),
-		fang.WithVersion(resolveVersion()),
+		fang.WithVersion(cmd.Version),
 	); err != nil {
 		return 1
 	}
