@@ -29,7 +29,7 @@ definitions and generating rathole configurations automatically.`,
 	root.PersistentFlags().StringVarP(&configPath, "config", "c", "",
 		"config file (default: ~/.config/rcm/config.yaml)")
 
-	root.AddCommand(newListCmd(), newSyncCmd(), newStatusCmd(), newPullCmd(), newRestartCmd(), newVersionCmd())
+	root.AddCommand(newListCmd(), newEditCmd(), newSyncCmd(), newStatusCmd(), newPullCmd(), newRestartCmd(), newVersionCmd())
 	return root
 }
 
