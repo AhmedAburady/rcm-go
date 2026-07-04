@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -37,6 +38,9 @@ func newEditCmd() *cobra.Command {
 			editor.Stdin = os.Stdin
 			editor.Stdout = os.Stdout
 			editor.Stderr = os.Stderr
+
+			signal.Ignore(os.Interrupt)
+			defer signal.Reset(os.Interrupt)
 
 			if err := editor.Run(); err != nil {
 				return fmt.Errorf("edit: %w", err)
