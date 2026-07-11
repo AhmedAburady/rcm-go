@@ -5,12 +5,16 @@ package ui
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/charmbracelet/x/term"
+	"golang.org/x/net/publicsuffix"
 
 	"github.com/AhmedAburady/rcm-go/internal/parser"
 )
@@ -129,6 +133,116 @@ func RenderServices(services []parser.Service) string {
 	)
 }
 
+const noDomain = "(no domain)"
+
+func rootDomain(domain string) string {
+	domain = strings.TrimSpace(domain)
+	if parsed, err := url.Parse(domain); err == nil && parsed.Hostname() != "" {
+		domain = parsed.Hostname()
+	} else {
+		if host, _, err := net.SplitHostPort(domain); err == nil {
+			domain = host
+		}
+	}
+	domain = strings.TrimPrefix(domain, "*.")
+	domain = strings.TrimSuffix(domain, ".")
+	domain = strings.ToLower(domain)
+	if net.ParseIP(domain) != nil {
+		return domain
+	}
+	root, err := publicsuffix.EffectiveTLDPlusOne(domain)
+	if err != nil {
+		return domain
+	}
+	return root
+}
+
+func groupByDomain[T any](items []T, name func(T) string, itemDomains func(T) []string) ([]string, map[string][]T) {
+	domainNames := make([]string, 0)
+	groups := make(map[string][]T)
+	seen := make(map[string]map[string]bool)
+	for _, item := range items {
+		hostnames := itemDomains(item)
+		if len(hostnames) == 0 {
+			hostnames = []string{noDomain}
+		}
+		for _, hostname := range hostnames {
+			domain := noDomain
+			if hostname != noDomain {
+				domain = rootDomain(hostname)
+			}
+			if _, exists := groups[domain]; !exists {
+				domainNames = append(domainNames, domain)
+				seen[domain] = make(map[string]bool)
+			}
+			itemName := name(item)
+			if seen[domain][itemName] {
+				continue
+			}
+			seen[domain][itemName] = true
+			groups[domain] = append(groups[domain], item)
+		}
+	}
+	slices.Sort(domainNames)
+	for _, domain := range domainNames {
+		slices.SortFunc(groups[domain], func(a, b T) int {
+			return strings.Compare(name(a), name(b))
+		})
+	}
+	return domainNames, groups
+}
+
+func serviceDomainsInRoot(service parser.Service, domain string) string {
+	if domain == noDomain {
+		return "—"
+	}
+	hostnames := make([]string, 0, len(service.Domains))
+	for _, hostname := range service.Domains {
+		if rootDomain(hostname) == domain {
+			hostnames = append(hostnames, hostname)
+		}
+	}
+	slices.Sort(hostnames)
+	return strings.Join(hostnames, ", ")
+}
+
+func renderDomainGroups[T any](domains []string, groups map[string][]T, headers []string, row func(string, int, T) []string, style func([]T) table.StyleFunc) string {
+	var b strings.Builder
+	for i, domain := range domains {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(headingStyle.Render(domain))
+		b.WriteByte('\n')
+		group := groups[domain]
+		rows := make([][]string, len(group))
+		for j, item := range group {
+			rows[j] = row(domain, j+1, item)
+		}
+		b.WriteString(renderTable(headers, rows, style(group)))
+	}
+	return b.String()
+}
+
+func serviceGroupRow(domain string, n int, service parser.Service) []string {
+	return []string{fmt.Sprintf("%d", n), service.Name, service.LocalAddr, fmt.Sprintf("%d", service.VPSPort), serviceDomainsInRoot(service, domain)}
+}
+
+func groupServicesByDomain(services []parser.Service) ([]string, map[string][]parser.Service) {
+	return groupByDomain(services, func(service parser.Service) string { return service.Name }, func(service parser.Service) []string { return service.Domains })
+}
+
+// RenderServicesByDomain renders one service table beneath each root-domain
+// heading and returns the number of rendered groups.
+func RenderServicesByDomain(services []parser.Service) (string, int) {
+	domains, groups := groupServicesByDomain(services)
+	return renderDomainGroups(domains, groups,
+		[]string{"#", "SERVICE", "LOCAL ADDRESS", "VPS PORT", "DOMAINS"},
+		serviceGroupRow,
+		func([]parser.Service) table.StyleFunc { return serviceCellStyle },
+	), len(domains)
+}
+
 type Sync int
 
 const (
@@ -187,4 +301,30 @@ func RenderServicesSync(rows []ServiceRow) string {
 		[]string{"#", "SERVICE", "LOCAL ADDRESS", "VPS PORT", "DOMAINS", "LOCAL", "REMOTE"},
 		tableRows, style,
 	)
+}
+
+// RenderServicesSyncByDomain renders sync status grouped beneath domain headings
+// and returns the number of rendered groups.
+func RenderServicesSyncByDomain(rows []ServiceRow) (string, int) {
+	domains, groups := groupByDomain(rows, func(row ServiceRow) string { return row.Service.Name }, func(row ServiceRow) []string { return row.Service.Domains })
+	return renderDomainGroups(domains, groups,
+		[]string{"#", "SERVICE", "LOCAL ADDRESS", "VPS PORT", "DOMAINS", "LOCAL", "REMOTE"},
+		func(domain string, n int, row ServiceRow) []string {
+			return append(serviceGroupRow(domain, n, row.Service), row.Local.mark(), row.Remote.mark())
+		},
+		func(group []ServiceRow) table.StyleFunc {
+			return func(r, c int) lipgloss.Style {
+				switch {
+				case r == table.HeaderRow:
+					return headerCellStyle
+				case c == 5:
+					return group[r].Local.style()
+				case c == 6:
+					return group[r].Remote.style()
+				default:
+					return serviceCellStyle(r, c)
+				}
+			}
+		},
+	), len(domains)
 }

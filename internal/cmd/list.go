@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"sort"
-
 	"github.com/spf13/cobra"
 
 	"github.com/AhmedAburady/rcm-go/internal/parser"
@@ -38,9 +36,9 @@ the VPS. Pass --no-check to skip the SSH probe for an instant, offline listing.`
 			}
 
 			if noCheck {
-				sort.Slice(services, func(i, j int) bool { return services[i].Name < services[j].Name })
-				out(c, "%s", ui.RenderServices(services))
-				out(c, "%s", ui.Info("Total: %d services (sync check skipped)", len(services)))
+				rendered, groupCount := ui.RenderServicesByDomain(services)
+				out(c, "%s", rendered)
+				out(c, "%s", ui.Info("Total: %d services · Root domains: %d (sync check skipped)", len(services), groupCount))
 				return nil
 			}
 
@@ -50,11 +48,12 @@ the VPS. Pass --no-check to skip the SSH probe for an instant, offline listing.`
 				rows, probeErr = probeServiceSync(cfg, services)
 			})
 
-			out(c, "%s", ui.RenderServicesSync(rows))
+			rendered, groupCount := ui.RenderServicesSyncByDomain(rows)
+			out(c, "%s", rendered)
 			if probeErr != nil {
 				out(c, "%s", ui.Warn("REMOTE status unavailable: %v", probeErr))
 			}
-			out(c, "%s", ui.Info("Total: %d services", len(rows)))
+			out(c, "%s", ui.Info("Total: %d services · Root domains: %d", len(rows), groupCount))
 			return nil
 		},
 	}
